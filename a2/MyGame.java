@@ -74,16 +74,28 @@ public class MyGame extends VariableFrameRateGame
 	private final GameObject[] hudIcons = new GameObject[3];
 	private final boolean[] iconCollected = new boolean[3];
 
+	// Shapes
 	private ObjShape dolS, quadS, linxS, linyS, linzS;
 	private ObjShape pyrS, planeS;
+	private TerrainPlane terrainShape;
+	private ObjShape playerS, flashlightS, tableS;
 
+	// Textures
 	private TextureImage dolTx;
 	private TextureImage homeTx;
-	private TextureImage sandTx;
+	private TextureImage grassTx;
 	private final TextureImage[] pyramidTx = new TextureImage[3];
+	private TextureImage heightMaptx; 
+	private TextureImage flashlightTx;
+	private TextureImage playerModelTx;
+	private TextureImage tableTx;
 
 	private GameObject dol;
 	private final GameObject[] pyramids = new GameObject[3];
+	private GameObject terrain;
+	private GameObject flashlight;
+	private GameObject player;
+	private GameObject table;
 
 	private final Light[] lightPyramid = new Light[3];
 
@@ -96,6 +108,7 @@ public class MyGame extends VariableFrameRateGame
 
 	private GameObject axisX, axisY, axisZ;
 	private boolean axesVisible = true;
+
 
 	public MyGame() { super(); }
 
@@ -115,6 +128,10 @@ public class MyGame extends VariableFrameRateGame
 		quadS  = new ManualQuad();
 		pyrS   = new ManualPyramid();
 		planeS = new Plane();
+		terrainShape = new TerrainPlane(1000);
+		playerS = new ImportedModel("playerModel.obj");
+		flashlightS = new ImportedModel("flashlight.obj");
+		tableS = new ImportedModel("table.obj");
 
 		linxS = new Line(new Vector3f(0f,0f,0f), new Vector3f(3f,0f,0f));
 		linyS = new Line(new Vector3f(0f,0f,0f), new Vector3f(0f,3f,0f));
@@ -131,8 +148,13 @@ public class MyGame extends VariableFrameRateGame
 		pyramidTx[1] = new TextureImage("pyramid2_512x512.jpg");
 		pyramidTx[2] = new TextureImage("pyramidbyme_512x512.jpg");
 
-		sandTx = new TextureImage("sandbyme.jpg");
+		grassTx = new TextureImage("grass.png");
 		homeTx = new TextureImage("brick1.jpg");
+
+		heightMaptx = new TextureImage("heightmap.png");
+		flashlightTx = new TextureImage("flashlightTx.png");
+		playerModelTx = new TextureImage("playerModel.png");
+		tableTx = new TextureImage("tableTx.png");
 	}
 
 	@Override
@@ -150,6 +172,23 @@ public class MyGame extends VariableFrameRateGame
 		dol.setLocalRotation(initialRotation);
 		dol.getRenderStates().hasLighting(true);
 
+		// Player
+		player = new GameObject(GameObject.root(), playerS, playerModelTx);
+		player.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 6f));
+		player.setLocalScale((new Matrix4f()).scaling(0.4f));
+		player.setLocalRotation((new Matrix4f()).rotationY((float)java.lang.Math.toRadians(180f)));
+
+		// Flashlight object
+		flashlight = new GameObject(GameObject.root(), flashlightS, flashlightTx);
+		flashlight.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
+		flashlight.setLocalScale((new Matrix4f()).scaling(0.5f));
+		flashlight.setLocalRotation((new Matrix4f()).rotationY((float)java.lang.Math.toRadians(180f)));
+
+		// Table object
+		table = new GameObject(GameObject.root(), tableS, tableTx);
+		table.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 8f));
+		table.setLocalScale((new Matrix4f()).scaling(0.4f));
+
 		// A2 pyramids: placed on y=0 to match the ground plane world.
 		for (int i = 0; i < 3; i++)
 		{
@@ -161,12 +200,15 @@ public class MyGame extends VariableFrameRateGame
 		pyramids[1].setLocalTranslation((new Matrix4f()).translation( 34f, 0f,   0f));
 		pyramids[2].setLocalTranslation((new Matrix4f()).translation( 18f, 0f,  10f));
 
-		// A2 ground plane: large plane with tiling to avoid stretched sand texture.
-		GameObject ground = new GameObject(GameObject.root(), planeS, sandTx);
-		ground.setLocalScale(new Matrix4f().scaling(200f, 1f, 200f));
-		ground.setLocalTranslation(new Matrix4f().translation(0f, 0f, 0f));
-		ground.getRenderStates().hasLighting(true);
-		ground.getRenderStates().setTiling(16);
+		// Terrain plane: hilly terrain with grass texture.
+		terrain = new GameObject(GameObject.root(), terrainShape, grassTx);
+		terrain.setLocalTranslation(new Matrix4f().translation(0, 0, 0));
+		terrain.setLocalScale(new Matrix4f().scaling(200.0f, 20f, 200.0f));
+		terrain.setHeightMap(heightMaptx);
+
+		// Set tilling for terrain texture
+		terrain.getRenderStates().setTiling(1);
+		terrain.getRenderStates().setTileFactor(10);
 
 		// A2 axes: kept from A1, with a toggle in toggleAxesVisibility.
 		axisX = new GameObject(GameObject.root(), linxS);
@@ -458,6 +500,11 @@ public class MyGame extends VariableFrameRateGame
 		applyPadMovement((float) elapsedTime);
 
 		updateJump((float)elapsedTime);
+
+		// update altitude of dolphin based on height map
+		Vector3f loc = dol.getWorldLocation();
+		float height = terrain.getHeight(loc.x(), loc.z());
+		dol.setLocalLocation(new Vector3f(loc.x(), height, loc.z()));
 
 		checkCrash();
 
