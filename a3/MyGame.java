@@ -102,11 +102,24 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 	private ObjShape dolS, quadS, linxS, linyS, linzS;
 	private ObjShape pyrS, planeS;
+	// Extra A2 shapes
+	private TerrainPlane terrainShape;
+	private ObjShape playerS, flashlightS, tableS;
 
 	// Player character
 	private ObjShape boyS;
 	private TextureImage boyTx;
 	private GameObject boy;
+
+	// Extra A2 textures
+	private TextureImage grassTx;
+	private TextureImage heightMaptx;
+	private TextureImage flashlightTx;
+	private TextureImage playerModelTx;
+	private TextureImage tableTx;
+
+	// Extra A2 objects
+	private GameObject terrain, flashlight, player, table;
 
 	private TextureImage dolTx;
 	private TextureImage homeTx;
@@ -210,6 +223,11 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		pyrS = new ManualPyramid();
 		planeS = new Plane();
 
+		terrainShape = new TerrainPlane(1000);
+		playerS = new ImportedModel("playerModel.obj");
+		flashlightS = new ImportedModel("flashlight.obj");
+		tableS = new ImportedModel("table.obj");
+
 		linxS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(3f, 0f, 0f));
 		linyS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 3f, 0f));
 		linzS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 0f, -3f));
@@ -229,6 +247,12 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		sandTx = new TextureImage("sandbyme.jpg");
 		homeTx = new TextureImage("brick1.jpg");
+
+		grassTx = new TextureImage("grass.png");
+		heightMaptx = new TextureImage("heightmap.png");
+		flashlightTx = new TextureImage("flashlightTx.png");
+		playerModelTx = new TextureImage("playerModel.png");
+		tableTx = new TextureImage("tableTx.png");
 	}
 
 	@Override
@@ -261,6 +285,21 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		boy.getRenderStates().setModelOrientationCorrection(
 				(new Matrix4f()).rotationX((float) java.lang.Math.toRadians(-90f)));
 
+		// Extra A2 objects
+		player = new GameObject(GameObject.root(), playerS, playerModelTx);
+		player.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 6f));
+		player.setLocalScale((new Matrix4f()).scaling(0.4f));
+		player.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
+
+		flashlight = new GameObject(GameObject.root(), flashlightS, flashlightTx);
+		flashlight.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
+		flashlight.setLocalScale((new Matrix4f()).scaling(0.5f));
+		flashlight.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
+
+		table = new GameObject(GameObject.root(), tableS, tableTx);
+		table.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 8f));
+		table.setLocalScale((new Matrix4f()).scaling(0.4f));
+
 		// A2 pyramids: placed on y=0 to match the ground plane world.
 		for (int i = 0; i < 3; i++) {
 			pyramids[i] = new GameObject(GameObject.root(), pyrS, pyramidTx[i]);
@@ -271,12 +310,14 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		pyramids[1].setLocalTranslation((new Matrix4f()).translation(34f, 0f, 0f));
 		pyramids[2].setLocalTranslation((new Matrix4f()).translation(18f, 0f, 10f));
 
-		// A2 ground plane: large plane with tiling to avoid stretched sand texture.
-		GameObject ground = new GameObject(GameObject.root(), planeS, sandTx);
-		ground.setLocalScale(new Matrix4f().scaling(200f, 1f, 200f));
-		ground.setLocalTranslation(new Matrix4f().translation(0f, 0f, 0f));
-		ground.getRenderStates().hasLighting(true);
-		ground.getRenderStates().setTiling(16);
+		// Terrain plane: hilly terrain with grass texture.
+		terrain = new GameObject(GameObject.root(), terrainShape, grassTx);
+		terrain.setLocalTranslation(new Matrix4f().translation(0f, 0f, 0f));
+		terrain.setHeightMap(heightMaptx);
+		terrain.setLocalScale(new Matrix4f().scaling(200.0f, 20f, 200.0f));
+		terrain.getRenderStates().hasLighting(true);
+		terrain.getRenderStates().setTiling(1);
+		terrain.getRenderStates().setTileFactor(10);
 
 		// A2 axes: kept from A1, with a toggle in toggleAxesVisibility.
 		axisX = new GameObject(GameObject.root(), linxS);
@@ -604,6 +645,12 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		applyPadMovement((float) elapsedTime);
 
 		updateJump((float) elapsedTime);
+
+		// Update altitude of player based on height map
+		Vector3f loc = boy.getWorldLocation();
+		float groundHeight = terrain.getHeight(loc.x(), loc.z());
+		float y = onGround ? groundHeight : loc.y;
+		boy.setLocalLocation(new Vector3f(loc.x(), y, loc.z()));
 
 		checkCrash();
 
