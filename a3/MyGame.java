@@ -8,7 +8,7 @@ import tage.*;
 import tage.nodeControllers.*;
 import tage.shapes.*;
 import tage.input.*;
-
+import tage.networking.IGameConnection.ProtocolType;
 import net.java.games.input.Component.Identifier.*;
 import net.java.games.input.Controller;
 import org.joml.*;
@@ -20,6 +20,8 @@ import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
+import java.io.IOException;
+import java.net.InetAddress;
 
 import javax.swing.ImageIcon;
 
@@ -100,30 +102,29 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private final GameObject[] hudIcons = new GameObject[3];
 	private final boolean[] iconCollected = new boolean[3];
 
-	private ObjShape dolS, quadS, linxS, linyS, linzS;
-	private ObjShape pyrS, planeS;
+	private ObjShape quadS, linxS, linyS, linzS;
+	private ObjShape pyrS;
 	private TerrainPlane terrainShape;
-	private ObjShape playerS, flashlightS, tableS;
+	private ObjShape playerModel2S, flashlightS, tableS;
 
 	// Player character
-	private ObjShape boyS;
-	private TextureImage boyTx;
-	private GameObject boy;
+	private ObjShape playerModel1S;
+	private TextureImage playerModel1Tx;
+	private GameObject clientPlayer;
 
-	private TextureImage dolTx;
 	private TextureImage homeTx;
 	private TextureImage grassTx;
 	private final TextureImage[] pyramidTx = new TextureImage[3];
-	private TextureImage heightMaptx; 
+	private TextureImage heightMaptx;
 	private TextureImage flashlightTx;
-	private TextureImage playerModelTx;
+	private TextureImage playerModel2Tx;
 	private TextureImage tableTx;
 
-	private GameObject dol;
 	private final GameObject[] pyramids = new GameObject[3];
 	private GameObject terrain;
 	private GameObject flashlight;
-	private GameObject player;
+
+	private GameObject playerModel2;
 	private GameObject table;
 
 	private final Light[] lightPyramid = new Light[3];
@@ -197,25 +198,89 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private final float mouseYawSpeed = 0.0025f;
 	private final float mouseElevSpeed = 0.15f;
 
-	public MyGame() {
+	// Networking
+	private GhostManager gm;
+	private String serverAddress;
+	private int serverPort;
+	private ProtocolType serverProtocol;
+	private ProtocolClient protClient;
+	private boolean isClientConnected = false;
+	private String avatarName = "playerModel1";
+
+	public MyGame(String serverAddress, int serverPort, String protocol, String avatarName) {
 		super();
+		gm = new GhostManager(this);
+		this.serverAddress = serverAddress;
+		this.serverPort = serverPort;
+		this.avatarName = (avatarName != null) ? avatarName : "playerModel1";
+		if ("TCP".equalsIgnoreCase(protocol))
+			this.serverProtocol = ProtocolType.TCP;
+		else
+			this.serverProtocol = ProtocolType.UDP;
 	}
 
 	public static void main(String[] args) {
-		MyGame game = new MyGame();
+		String serverAddress = null;
+		int serverPort = 6969;
+		String protocol = "UDP";
+		String avatarName = "playerModel1";
+
+		if (args.length > 0) serverAddress = args[0].equals("null") ? null : args[0];
+		if (args.length > 1) serverPort = Integer.parseInt(args[1]);
+		if (args.length > 2) protocol = args[2];
+		if (args.length > 3) avatarName = args[3];
+
+		MyGame game = new MyGame(serverAddress, serverPort, protocol, avatarName);
 		engine = new Engine(game);
 		engine.initializeSystem();
 		game.buildGame();
 		game.startGame();
 	}
 
+	// --- Networking getters/setters ---
+	public void setIsConnected(boolean b) { isClientConnected = b; }
+	public boolean getIsConnected() { return isClientConnected; }
+	public ProtocolClient getProtocolClient() { return protClient; }
+	public GhostManager getGhostManager() { return gm; }
+	public Vector3f getPlayerPosition() { return clientPlayer.getWorldLocation(); }
+	public String getAvatarName() { return avatarName; }
+	public GameObject getAvatar() { return clientPlayer; }
+
+	public ObjShape getGhostShape(String name) {
+		return name.equals("playerModel2") ? playerModel2S : playerModel1S;
+	}
+
+	public TextureImage getGhostTexture(String name) {
+		return name.equals("playerModel2") ? playerModel2Tx : playerModel1Tx;
+	}
+
+	private void setupNetworking() {
+		if (serverAddress == null) return;
+		isClientConnected = false;
+		try {
+			protClient = new ProtocolClient(
+				InetAddress.getByName(serverAddress),
+				serverPort, serverProtocol, this);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		if (protClient == null) {
+			System.out.println("missing protocol host");
+		} else {
+			protClient.sendJoinMessage();
+		}
+	}
+
+	private void processNetworking(float elapsTime) {
+		if (protClient != null)
+			protClient.processPackets();
+	}
+
 	@Override
 	public void loadShapes() {
-		dolS = new ImportedModel("dolphinHighPoly.obj");
-
 		// Player character models
-		boyS = new ImportedModel("boy_character.obj");
-		playerS = new ImportedModel("playerModel.obj");
+		playerModel1S = new ImportedModel("boy_character.obj");
+		playerModel2S = new ImportedModel("playerModel.obj");
 
 		// Custom models
 		flashlightS = new ImportedModel("flashlight.obj");
@@ -223,7 +288,6 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		quadS = new ManualQuad();
 		pyrS = new ManualPyramid();
-		planeS = new Plane();
 		terrainShape = new TerrainPlane(1000);
 
 		linxS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(3f, 0f, 0f));
@@ -233,11 +297,9 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 	@Override
 	public void loadTextures() {
-		dolTx = new TextureImage("Dolphin_HighPolyUV.jpg");
-
 		// Player character texture
-		boyTx = new TextureImage("boy_character.jpg");
-		playerModelTx = new TextureImage("playerModel.png");
+		playerModel1Tx = new TextureImage("boy_character.jpg");
+		playerModel2Tx = new TextureImage("playerModel.png");
 
 		// A2 pyramid textures: each pyramid uses a different texture.
 		pyramidTx[0] = new TextureImage("3d-geometric-texture-copper_512x512.jpg");
@@ -270,26 +332,16 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	public void buildObjects() {
 		Matrix4f initialTranslation, initialScale, initialRotation;
 
-		// A3 avatar: boy character replaces dolphin as the player avatar.
-		boy = new GameObject(GameObject.root(), boyS, boyTx);
+		// A3 avatar: instantiate only the model chosen by the player at startup.
+		ObjShape avatarShape = avatarName.equals("playerModel2") ? playerModel2S : playerModel1S;
+		TextureImage avatarTex = avatarName.equals("playerModel2") ? playerModel2Tx : playerModel1Tx;
+		float avatarScale = 1.0f;
+		clientPlayer = new GameObject(GameObject.root(), avatarShape, avatarTex);
 		initialTranslation = (new Matrix4f()).translation(0f, 0f, 6f);
-		initialScale = (new Matrix4f()).scaling(1.0f); // adjust if needed
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f));
-		boy.setLocalTranslation(initialTranslation);
-		boy.setLocalScale(initialScale);
-		boy.setLocalRotation(initialRotation);
-		boy.getRenderStates().hasLighting(true);
-
-		// Imported model correction: rotate the mesh upright without changing the
-		// player object's movement/camera orientation.
-		boy.getRenderStates().setModelOrientationCorrection(
-				(new Matrix4f()).rotationX((float) java.lang.Math.toRadians(-90f)));
-
-		// Player
-		player = new GameObject(GameObject.root(), playerS, playerModelTx);
-		player.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 6f));
-		player.setLocalScale((new Matrix4f()).scaling(0.25f));
-		player.setLocalRotation((new Matrix4f()).rotationY((float)java.lang.Math.toRadians(180f)));
+		initialScale = (new Matrix4f()).scaling(avatarScale);
+		clientPlayer.setLocalTranslation(initialTranslation);
+		clientPlayer.setLocalScale(initialScale);
+		clientPlayer.getRenderStates().hasLighting(true);
 
 		// Flashlight object
 		flashlight = new GameObject(GameObject.root(), flashlightS, flashlightTx);
@@ -424,7 +476,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		// A2 hierarchical objects: photos are children of the dolphin until they get
 		// placed on the home wall.
 		for (int i = 0; i < 3; i++) {
-			hudIcons[i] = new GameObject(boy, quadS, pyramidTx[i]);
+			hudIcons[i] = new GameObject(clientPlayer, quadS, pyramidTx[i]);
 			hudIcons[i].getRenderStates().hasLighting(false);
 
 			hudIcons[i].setLocalScale((new Matrix4f()).scaling(0f));
@@ -470,7 +522,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		// A2 orbit camera controller: main viewport camera orbits around the dolphin.
 		Camera mainCam = engine.getRenderSystem().getViewport("MAIN").getCamera();
-		orbitCam = new CameraOrbit3D(mainCam, boy);
+		orbitCam = new CameraOrbit3D(mainCam, clientPlayer);
 		orbitCam.setRadius(4.5f);
 		orbitCam.setElevationDeg(15f);
 		orbitCam.setAzimuthDeg(180f);
@@ -622,6 +674,8 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 		im.associateActionWithAllKeyboards(Key.N, new LowerBuildHeightAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+
+		setupNetworking();
 	}
 
 	@Override
@@ -650,9 +704,9 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		updateJump((float) elapsedTime);
 
 		// update altitude of player based on height map
-		Vector3f loc = boy.getWorldLocation();
+		Vector3f loc = clientPlayer.getWorldLocation();
 		float height = terrain.getHeight(loc.x(), loc.z());
-		boy.setLocalLocation(new Vector3f(loc.x(), height, loc.z()));
+		clientPlayer.setLocalLocation(new Vector3f(loc.x(), height, loc.z()));
 
 		checkCrash();
 
@@ -662,6 +716,8 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		updateBuildPreview();
 
 		updateHUD();
+
+		processNetworking((float) elapsedTime);
 	}
 
 	private void showEvent(String msg, double seconds) {
@@ -700,7 +756,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		}
 
 		// Overhead viewport HUD shows dolphin world position
-		Vector3f p = boy.getWorldLocation();
+		Vector3f p = clientPlayer.getWorldLocation();
 		String pos = String.format("POS (%.1f, %.1f, %.1f)", p.x, p.y, p.z);
 		int pad = 60; // padding from the screen edge
 		int approxCharW = 8; // rough pixels per character
@@ -763,11 +819,11 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	}
 
 	private Vector3f dolphinForward() {
-		return (new Vector3f(boy.getWorldForwardVector())).normalize();
+		return (new Vector3f(clientPlayer.getWorldForwardVector())).normalize();
 	}
 
 	private float distanceToHome() {
-		return boy.getWorldLocation().distance(new Vector3f(0f, 0f, 0f));
+		return clientPlayer.getWorldLocation().distance(new Vector3f(0f, 0f, 0f));
 	}
 
 	// Collision uses pyramid scale plus a buffer so contact feels fair.
@@ -783,7 +839,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		if (isLost() || isWon())
 			return;
 
-		Vector3f dLoc = boy.getWorldLocation();
+		Vector3f dLoc = clientPlayer.getWorldLocation();
 
 		for (int i = 0; i < 3; i++) {
 			float dist = dLoc.distance(pyramids[i].getWorldLocation());
@@ -800,7 +856,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	}
 
 	private int closestPyramidWithinRange() {
-		Vector3f dLoc = boy.getWorldLocation();
+		Vector3f dLoc = clientPlayer.getWorldLocation();
 		int best = -1;
 		float bestDist = Float.MAX_VALUE;
 
@@ -1189,7 +1245,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	}
 
 	private Vector3f getBuildPiecePosition() {
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = clientPlayer.getWorldLocation();
 		Vector3f fwd = dolphinForward();
 
 		fwd.y = 0f;
@@ -1309,14 +1365,14 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		float dist = moveSpeed * input * time;
 
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = clientPlayer.getWorldLocation();
 		Vector3f fwd = dolphinForward();
 
 		Vector3f newPos = new Vector3f(pos).add(new Vector3f(fwd).mul(dist));
 
 		newPos.y = onGround ? 0.0f : pos.y;
 
-		boy.setLocalLocation(newPos);
+		clientPlayer.setLocalLocation(newPos);
 	}
 
 	public void doStrafe(float dir, float time) {
@@ -1327,8 +1383,8 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		float dist = moveSpeed * dir * time;
 
-		Vector3f pos = boy.getWorldLocation();
-		Vector3f rt = new Vector3f(boy.getWorldRightVector()).normalize();
+		Vector3f pos = clientPlayer.getWorldLocation();
+		Vector3f rt = new Vector3f(clientPlayer.getWorldRightVector()).normalize();
 
 		Vector3f right = new Vector3f(rt.x, 0f, rt.z);
 		if (right.lengthSquared() < 0.0001f)
@@ -1339,7 +1395,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		newPos.y = onGround ? 0.0f : pos.y;
 
-		boy.setLocalLocation(newPos);
+		clientPlayer.setLocalLocation(newPos);
 	}
 
 	// A2 global yaw: uses globalYaw so turning is around world y, not local y.
@@ -1352,7 +1408,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		float yawSpeed = 1.6f;
 		float ang = yawSpeed * input * time;
 
-		boy.globalYaw(ang);
+		clientPlayer.globalYaw(ang);
 	}
 
 	public void doPitch() {
@@ -1397,7 +1453,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		float gravity = -18.0f;
 		yVel += gravity * dt;
 
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = clientPlayer.getWorldLocation();
 		float newY = pos.y + yVel * dt;
 
 		if (newY <= 0.0f) {
@@ -1406,7 +1462,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			onGround = true;
 		}
 
-		boy.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
+		clientPlayer.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
 	}
 
 	public void useSky04() {
@@ -1549,7 +1605,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		float yawAmt = mouseDeltaX * mouseYawSpeed;
 
 		// Ground-based character turning should use global yaw.
-		boy.globalYaw(yawAmt);
+		clientPlayer.globalYaw(yawAmt);
 
 		if (orbitCam != null)
 			orbitCam.update();

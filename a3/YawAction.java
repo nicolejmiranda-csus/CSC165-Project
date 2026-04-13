@@ -16,5 +16,8 @@ public class YawAction extends AbstractInputAction {
     public void performAction(float time, Event e) {
         // Fixed direction lets left and right yaw share the same action class.
         game.doYaw(dir, time);
+        ProtocolClient protClient = game.getProtocolClient();
+        if (protClient != null)
+            protClient.sendMoveMessage(game.getAvatar().getWorldLocation());
     }
 }

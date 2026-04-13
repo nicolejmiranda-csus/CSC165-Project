@@ -16,5 +16,8 @@ public class StrafeAction extends AbstractInputAction {
     public void performAction(float time, Event e) {
         // Fixed direction lets LEFT and RIGHT share the same action class.
         game.doStrafe(dir, time);
+        ProtocolClient protClient = game.getProtocolClient();
+        if (protClient != null)
+            protClient.sendMoveMessage(game.getAvatar().getWorldLocation());
     }
 }

@@ -14,7 +14,9 @@ public class MoveAction extends AbstractInputAction {
 
     @Override
     public void performAction(float time, Event e) {
-        // Direction is fixed per binding, so W and S can share the same class.
         game.doMove(dir, time);
+        ProtocolClient protClient = game.getProtocolClient();
+        if (protClient != null)
+            protClient.sendMoveMessage(game.getAvatar().getWorldLocation());
     }
 }
