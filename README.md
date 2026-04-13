@@ -107,18 +107,18 @@ runLocalPlayer2.bat
 ## Quick Start (Local Multiplayer)
 
 1. Open a terminal and start the server:
-   ```bat
+```bat
 
-   java a3.NetworkingServer 6969 UDP
+java a3.NetworkingServer 6969 UDP
 
-   ```
+```
 
 2. Open one or more additional terminals and start a client in each, using `localhost` as the address:
 
-   ```bat
+```bat
 
 runLocalPlayer1.bat | runLocalPlayer2.bat
 
-   ```
+```
 
 3. Each client will appear as a ghost avatar in all other connected clients' games.
