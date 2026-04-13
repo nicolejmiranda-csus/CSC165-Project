@@ -13,9 +13,25 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 		super(localPort, ProtocolType.TCP);
 	}
 
+	private void logInboundPacket(String message, InetAddress senderIP, int senderPort) {
+		if (senderIP != null)
+			System.out.println("server received --> " + message + " from " + senderIP.getHostAddress() + ":" + senderPort);
+		else
+			System.out.println("server received --> " + message);
+	}
+
+	private void logDirectPacket(String message, UUID targetId) {
+		System.out.println("server sending --> " + message + " to " + targetId.toString());
+	}
+
+	private void logForwardPacket(String message, UUID sourceId) {
+		System.out.println("server forwarding --> " + message + " from " + sourceId.toString());
+	}
+
 	@Override
 	public void acceptClient(IClientInfo ci, Object o) {
 		String message = (String) o;
+		logInboundPacket(message, null, -1);
 		String[] messageTokens = message.split(",");
 
 		if (messageTokens.length > 0) { // JOIN -- Case where client just joined the server
@@ -31,6 +47,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	@Override
 	public void processPacket(Object o, InetAddress senderIP, int senderPort) {
 		String message = (String) o;
+		logInboundPacket(message, senderIP, senderPort);
 		String[] messageTokens = message.split(",");
 
 		if (messageTokens.length > 0) { // Case where client just joined the server
@@ -126,6 +143,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 				message += "success";
 			else
 				message += "failure";
+			logDirectPacket(message, clientID);
 			sendPacket(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -144,6 +162,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	public void sendByeMessages(UUID clientID) {
 		try {
 			String message = new String("bye," + clientID.toString());
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -168,8 +187,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					+ "," + position[2]
 					+ "," + yaw;
 
-			System.out.println("forwarding create for " + clientID.toString());
-
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -187,6 +205,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			logDirectPacket(message, remoteId);
 			sendPacket(message, remoteId);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -205,6 +224,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	public void sendWantsDetailsMessages(UUID clientID) {
 		try {
 			String message = new String("wsds," + clientID.toString());
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -229,6 +249,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -244,6 +265,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					+ "," + buildData[3]
 					+ "," + buildData[4]
 					+ "," + buildData[5];
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -259,6 +281,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					+ "," + buildData[3]
 					+ "," + buildData[4]
 					+ "," + buildData[5];
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -268,6 +291,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	public void sendPhotoMessages(UUID clientID, String pyramidIndex) {
 		try {
 			String message = "photo," + clientID.toString() + "," + pyramidIndex;
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -277,6 +301,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	public void sendPlacePhotosMessages(UUID clientID) {
 		try {
 			String message = "placephotos," + clientID.toString();
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();

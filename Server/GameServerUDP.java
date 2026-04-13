@@ -13,9 +13,25 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 		super(localPort, ProtocolType.UDP);
 	}
 
+	private void logInboundPacket(String message, InetAddress senderIP, int senderPort) {
+		if (senderIP != null)
+			System.out.println("server received --> " + message + " from " + senderIP.getHostAddress() + ":" + senderPort);
+		else
+			System.out.println("server received --> " + message);
+	}
+
+	private void logDirectPacket(String message, UUID targetId) {
+		System.out.println("server sending --> " + message + " to " + targetId.toString());
+	}
+
+	private void logForwardPacket(String message, UUID sourceId) {
+		System.out.println("server forwarding --> " + message + " from " + sourceId.toString());
+	}
+
 	@Override
 	public void processPacket(Object o, InetAddress senderIP, int senderPort) {
 		String message = (String) o;
+		logInboundPacket(message, senderIP, senderPort);
 		String[] messageTokens = message.split(",");
 
 		if (messageTokens.length > 0) {
@@ -117,12 +133,12 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 	// Message Format: (join,success) or (join,failure)
 	public void sendJoinedMessage(UUID clientID, boolean success) {
 		try {
-			System.out.println("trying to confirm join");
 			String message = "join,";
 			if (success)
 				message += "success";
 			else
 				message += "failure";
+			logDirectPacket(message, clientID);
 			sendPacket(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -133,6 +149,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 	public void sendByeMessages(UUID clientID) {
 		try {
 			String message = "bye," + clientID.toString();
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -148,6 +165,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -163,6 +181,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			logDirectPacket(message, remoteId);
 			sendPacket(message, remoteId);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -173,6 +192,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 	public void sendWantsDetailsMessages(UUID clientID) {
 		try {
 			String message = "wsds," + clientID.toString();
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -187,6 +207,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -204,6 +225,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					+ "," + buildData[4]
 					+ "," + buildData[5];
 
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -221,6 +243,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					+ "," + buildData[4]
 					+ "," + buildData[5];
 
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -231,6 +254,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 	public void sendPhotoMessages(UUID clientID, String pyramidIndex) {
 		try {
 			String message = "photo," + clientID.toString() + "," + pyramidIndex;
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -241,6 +265,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 	public void sendPlacePhotosMessages(UUID clientID) {
 		try {
 			String message = "placephotos," + clientID.toString();
+			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();

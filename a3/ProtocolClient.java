@@ -24,6 +24,11 @@ public class ProtocolClient extends GameConnectionClient {
 		return id;
 	}
 
+	private void sendLoggedPacket(String message) throws IOException {
+		System.out.println("sending --> " + message);
+		sendPacket(message);
+	}
+
 	@Override
 	protected void processPacket(Object message) {
 		if (message == null) {
@@ -197,7 +202,7 @@ public class ProtocolClient extends GameConnectionClient {
 
 	public void sendJoinMessage() {
 		try {
-			sendPacket("join," + id.toString());
+			sendLoggedPacket("join," + id.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -208,7 +213,7 @@ public class ProtocolClient extends GameConnectionClient {
 
 	public void sendByeMessage() {
 		try {
-			sendPacket("bye," + id.toString());
+			sendLoggedPacket("bye," + id.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -229,7 +234,7 @@ public class ProtocolClient extends GameConnectionClient {
 			message += "," + position.z();
 			message += "," + yaw;
 
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -250,7 +255,7 @@ public class ProtocolClient extends GameConnectionClient {
 			message += "," + position.z();
 			message += "," + yaw;
 
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -268,7 +273,7 @@ public class ProtocolClient extends GameConnectionClient {
 			message += "," + position.z();
 			message += "," + yaw;
 
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -279,7 +284,7 @@ public class ProtocolClient extends GameConnectionClient {
 			String message = "build," + id.toString()
 					+ "," + pieceType + "," + modeType + "," + roofDir
 					+ "," + pos.x() + "," + pos.y() + "," + pos.z();
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -290,7 +295,7 @@ public class ProtocolClient extends GameConnectionClient {
 			String message = "removebuild," + id.toString()
 					+ "," + pieceType + "," + modeType + "," + roofDir
 					+ "," + pos.x() + "," + pos.y() + "," + pos.z();
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -299,7 +304,7 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendPhotoMessage(int pyramidIndex) {
 		try {
 			String message = "photo," + id.toString() + "," + pyramidIndex;
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
@@ -308,7 +313,7 @@ public class ProtocolClient extends GameConnectionClient {
 	public void sendPlacePhotosMessage() {
 		try {
 			String message = "placephotos," + id.toString();
-			sendPacket(message);
+			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}

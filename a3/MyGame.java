@@ -4,6 +4,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
@@ -29,6 +30,7 @@ import javax.swing.JOptionPane;
 
 import com.jogamp.opengl.awt.GLCanvas;
 import tage.networking.IGameConnection.ProtocolType;
+import tage.networking.NetworkDiscovery;
 
 public class MyGame extends VariableFrameRateGame {
 	/*
@@ -283,6 +285,14 @@ public class MyGame extends VariableFrameRateGame {
 		isMultiplayer = false;
 	}
 
+	public MyGame(String serverAddress) {
+		super();
+		this.serverAddress = serverAddress;
+		this.serverPort = 0;
+		this.serverProtocol = ProtocolType.UDP;
+		isMultiplayer = true;
+	}
+
 	public MyGame(String serverAddress, int serverPort, String protocol) {
 		super();
 		this.serverAddress = serverAddress;
@@ -319,6 +329,13 @@ public class MyGame extends VariableFrameRateGame {
 		if (args.length == 0) {
 			game = new MyGame();
 			game.setSelectedAvatarType(chooseAvatarPopup());
+		} else if (args.length >= 1 && NetworkDiscovery.usesAutoDiscovery(args[0])) {
+			game = new MyGame(args[0]);
+
+			if (args.length >= 2)
+				game.setSelectedAvatarType(args[1]);
+			else
+				game.setSelectedAvatarType(chooseAvatarPopup());
 		} else if (args.length >= 3) {
 			game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
 
@@ -330,7 +347,11 @@ public class MyGame extends VariableFrameRateGame {
 		} else {
 			System.out.println("Usage:");
 			System.out.println("Single-player: java a3.MyGame");
-			System.out.println("Multi-player : java a3.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
+			System.out.println("Server       : java Server.NetworkingServer <port> <UDP|TCP>");
+			System.out.println("Auto client  : java a3.MyGame AUTO [avatarType]");
+			System.out.println("Manual client: java a3.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
+			System.out.println("Note         : NetworkingServer relays packets only, so 2 players need 2 MyGame clients.");
+			System.out.println("Auto client  : searches the LAN for a running NetworkingServer.");
 			return;
 		}
 
@@ -2558,7 +2579,13 @@ public class MyGame extends VariableFrameRateGame {
 	private void setupNetworking() {
 		isClientConnected = false;
 		try {
-			protClient = new ProtocolClient(InetAddress.getByName(serverAddress), serverPort, serverProtocol, this);
+			InetAddress remoteAddress = resolveServerAddress();
+			printMultiplayerStartupHints(remoteAddress);
+			protClient = new ProtocolClient(remoteAddress, serverPort, serverProtocol, this);
+		} catch (SocketTimeoutException e) {
+			System.out.println("auto-discovery failed --> no NetworkingServer replied on UDP port "
+					+ NetworkDiscovery.DEFAULT_DISCOVERY_PORT);
+			System.out.println("auto-discovery failed --> make sure the server is running and that your network allows local device discovery");
 		} catch (UnknownHostException e) {
 			e.printStackTrace();
 		} catch (IOException e) {
@@ -2569,6 +2596,38 @@ public class MyGame extends VariableFrameRateGame {
 		} else { // Send the initial join message with a unique identifier for this client
 			System.out.println("sending join message to protocol host");
 			protClient.sendJoinMessage();
+		}
+	}
+
+	private InetAddress resolveServerAddress() throws IOException {
+		if (!NetworkDiscovery.usesAutoDiscovery(serverAddress))
+			return InetAddress.getByName(serverAddress);
+
+		System.out.println("auto-discovery --> searching for a NetworkingServer on UDP port "
+				+ NetworkDiscovery.DEFAULT_DISCOVERY_PORT);
+		NetworkDiscovery.DiscoveredServer discoveredServer = NetworkDiscovery.discoverServer(
+				NetworkDiscovery.DEFAULT_DISCOVERY_PORT,
+				NetworkDiscovery.DEFAULT_DISCOVERY_TIMEOUT_MS);
+
+		serverAddress = discoveredServer.getAddress().getHostAddress();
+		serverPort = discoveredServer.getGamePort();
+		serverProtocol = discoveredServer.getProtocolType();
+
+		System.out.println("auto-discovery --> found server at "
+				+ serverAddress + ":" + serverPort + " using " + serverProtocol);
+
+		return discoveredServer.getAddress();
+	}
+
+	private void printMultiplayerStartupHints(InetAddress remoteAddress) {
+		System.out.println("multiplayer target --> "
+				+ serverAddress + " (" + remoteAddress.getHostAddress() + "):" + serverPort
+				+ " using " + serverProtocol);
+		System.out.println("multiplayer note --> NetworkingServer is a relay only; launch two separate MyGame clients for two players");
+
+		if (remoteAddress.isAnyLocalAddress() || remoteAddress.isLoopbackAddress()) {
+			System.out.println("multiplayer note --> " + serverAddress + " only reaches this same computer");
+			System.out.println("multiplayer note --> remote machines must use the server computer's LAN IPv4 address instead of localhost");
 		}
 	}
 
