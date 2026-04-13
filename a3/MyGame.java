@@ -2,15 +2,20 @@ package a3;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.io.IOException;
+import java.net.InetAddress;
+import java.net.UnknownHostException;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
+import javax.swing.JFrame;
+import javax.swing.SwingUtilities;
 
-import org.joml.Math;
 import tage.*;
 import tage.nodeControllers.*;
 import tage.shapes.*;
 import tage.input.*;
-
+import tage.input.action.AbstractInputAction;
 import net.java.games.input.Component.Identifier.*;
-import net.java.games.input.Controller;
 import org.joml.*;
 
 import java.awt.AWTException;
@@ -19,13 +24,13 @@ import java.awt.Point;
 import java.awt.Robot;
 import java.awt.Toolkit;
 import java.awt.event.MouseEvent;
-import java.awt.event.MouseMotionListener;
 
-import javax.swing.ImageIcon;
+import javax.swing.JOptionPane;
 
 import com.jogamp.opengl.awt.GLCanvas;
+import tage.networking.IGameConnection.ProtocolType;
 
-public class MyGame extends VariableFrameRateGame implements MouseMotionListener {
+public class MyGame extends VariableFrameRateGame {
 	/*
 	 * A2 requirement map
 	 * Orbit camera controller: initializeGame, doOrbit, doElevate, doZoom,
@@ -60,12 +65,32 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private static final float OVER_H = 0.26f;
 
 	private InputManager im;
+	private GhostManager gm;
 
 	private double lastFrameTime, currFrameTime, elapsedTime;
 
 	private boolean lost = false;
 	private boolean won = false;
 	private int score = 0;
+
+	private final int maxHealth = 100;
+	private int health = 100;
+
+	private final int pyramidDamage = 25;
+	private final int potionHealAmount = 35;
+
+	private final float itemPickupRange = 1.25f;
+	private double damageCooldown = 0.0;
+	private final double damageCooldownTime = 1.0;
+
+	private boolean hasFlashlight = false;
+	private boolean hasPotion = false;
+	private boolean potionUsed = false;
+
+	private static final int ITEM_NONE = 0;
+	private static final int ITEM_FLASHLIGHT = 1;
+	private static final int ITEM_POTION = 2;
+	private int equippedItem = ITEM_NONE;
 
 	// Help overlay page
 	// 0 means off
@@ -76,7 +101,9 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private String eventMsg = "";
 	private double eventHold = 0.0;
 
-	private final float moveSpeed = 4.0f;
+	private final float walkSpeed = 4.0f;
+	private final float runSpeed = 8.0f;
+	private float runHoldTime = 0.0f;
 	private final float homeRange = 6.0f;
 
 	// A2 overhead camera controls pan using x and z, and zoom using y.
@@ -86,12 +113,30 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private float padMove = 0.0f;
 	private float padStrafe = 0.0f;
 
+	private boolean healthPotionSnappedToTerrain = false;
+	private boolean flashlightSnappedToTerrain = false;
+	private final float flashlightLift = 0.08f;
+	private final float potionLift = 0.12f;
+	private Light flashlightSpotlight;
+	private final float flashlightBeamForwardOffset = 0.18f;
+	private final float flashlightBeamLift = 0.03f;
+
 	public void setPadMove(float v) {
 		padMove = v;
 	}
 
 	public void setPadStrafe(float v) {
 		padStrafe = v;
+	}
+
+	public void triggerRun() {
+		runHoldTime = 0.15f;
+	}
+
+	private float getCurrentMoveSpeed() {
+		if (runHoldTime > 0.0f)
+			return runSpeed;
+		return walkSpeed;
 	}
 
 	private boolean onGround = true;
@@ -101,14 +146,15 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private final boolean[] iconCollected = new boolean[3];
 
 	private ObjShape dolS, quadS, linxS, linyS, linzS;
-	private ObjShape pyrS, planeS;
-	// Extra A2 shapes
+	private ObjShape pyrS;
 	private TerrainPlane terrainShape;
-	private ObjShape playerS, flashlightS, tableS;
+	private ObjShape playerS, flashlightS, tableS, healthPotionS;
 
 	// Player character
 	private ObjShape boyS;
 	private TextureImage boyTx;
+	private TextureImage playerAvatarTx;
+	private TextureImage healthPotionTx;
 	private GameObject boy;
 
 	// Extra A2 textures
@@ -117,13 +163,11 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private TextureImage flashlightTx;
 	private TextureImage playerModelTx;
 	private TextureImage tableTx;
-
-	// Extra A2 objects
-	private GameObject terrain, flashlight, player, table;
-
 	private TextureImage dolTx;
 	private TextureImage homeTx;
-	private TextureImage sandTx;
+
+	// Extra A2 objects
+	private GameObject terrain, flashlight, player, table, healthPotion;
 	private final TextureImage[] pyramidTx = new TextureImage[3];
 
 	private GameObject dol;
@@ -133,6 +177,25 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 	// A2 orbit camera controller lives in tage as CameraOrbit3D.
 	private CameraOrbit3D orbitCam;
+	private float orbitAzimuthDeg = 180.0f;
+	private float orbitElevationDeg = 15.0f;
+	private float orbitRadius = 4.5f;
+
+	private float minOrbitElevationDeg = -10.0f;
+	private float maxOrbitElevationDeg = 80.0f;
+	private boolean fullMapMode = false;
+
+	// A3 camera mode builds on the existing orbit camera instead of replacing it.
+	// 0 = normal behind
+	// 1 = right shoulder
+	// 2 = left shoulder
+	// 3 = first person
+	private int cameraMode = 0;
+
+	// Shoulder camera is only translated in camera-local x and y so the original
+	// orbit direction stays unchanged.
+	private float shoulderOffsetX = 1.25f;
+	private float shoulderOffsetY = 0.75f;
 
 	// Node controllers: built-in rotation and custom bobbing controller.
 	private RotationController photoSpin;
@@ -200,12 +263,77 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	private final float mouseYawSpeed = 0.0025f;
 	private final float mouseElevSpeed = 0.15f;
 
+	private String serverAddress;
+	private int serverPort;
+	private ProtocolType serverProtocol;
+	private ProtocolClient protClient;
+	private boolean isClientConnected = false;
+
+	private float playerYaw = 180.0f;
+	private boolean byeMessageSent = false;
+
+	private boolean isMultiplayer = false;
+
+	// Avatar selection at startup is sent to remote clients so their ghost uses
+	// the proper model and texture.
+	private String selectedAvatar = "boy";
+
 	public MyGame() {
 		super();
+		isMultiplayer = false;
+	}
+
+	public MyGame(String serverAddress, int serverPort, String protocol) {
+		super();
+		this.serverAddress = serverAddress;
+		this.serverPort = serverPort;
+		isMultiplayer = true;
+
+		if (protocol.toUpperCase().compareTo("TCP") == 0)
+			this.serverProtocol = ProtocolType.TCP;
+		else
+			this.serverProtocol = ProtocolType.UDP;
+	}
+
+	private static String chooseAvatarPopup() {
+		Object[] options = { "boy", "player" };
+
+		Object choice = JOptionPane.showInputDialog(
+				null,
+				"Choose your character:",
+				"Avatar Selection",
+				JOptionPane.QUESTION_MESSAGE,
+				null,
+				options,
+				options[0]);
+
+		if (choice == null)
+			return "boy";
+
+		return choice.toString();
 	}
 
 	public static void main(String[] args) {
-		MyGame game = new MyGame();
+		MyGame game;
+
+		if (args.length == 0) {
+			game = new MyGame();
+			game.setSelectedAvatarType(chooseAvatarPopup());
+		} else if (args.length >= 3) {
+			game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
+
+			// Optional 4th argument chooses avatar type at startup.
+			if (args.length >= 4)
+				game.setSelectedAvatarType(args[3]);
+			else
+				game.setSelectedAvatarType(chooseAvatarPopup());
+		} else {
+			System.out.println("Usage:");
+			System.out.println("Single-player: java a3.MyGame");
+			System.out.println("Multi-player : java a3.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
+			return;
+		}
+
 		engine = new Engine(game);
 		engine.initializeSystem();
 		game.buildGame();
@@ -216,17 +344,18 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	public void loadShapes() {
 		dolS = new ImportedModel("dolphinHighPoly.obj");
 
-		// Player character model
-		boyS = new ImportedModel("boy_character.obj");
+		// Player character models
+		boyS = new ImportedModel("boy_character_textured.obj");
+		playerS = new ImportedModel("playerModel.obj");
+
+		// Custom models
+		flashlightS = new ImportedModel("flashlight.obj");
+		tableS = new ImportedModel("table.obj");
+		healthPotionS = new ImportedModel("healthpotion1.obj");
 
 		quadS = new ManualQuad();
 		pyrS = new ManualPyramid();
-		planeS = new Plane();
-
 		terrainShape = new TerrainPlane(1000);
-		playerS = new ImportedModel("playerModel.obj");
-		flashlightS = new ImportedModel("flashlight.obj");
-		tableS = new ImportedModel("table.obj");
 
 		linxS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(3f, 0f, 0f));
 		linyS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 3f, 0f));
@@ -238,21 +367,25 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		dolTx = new TextureImage("Dolphin_HighPolyUV.jpg");
 
 		// Player character texture
-		boyTx = new TextureImage("boy_character.jpg");
+		boyTx = new TextureImage("boy_textured.png");
+		playerAvatarTx = new TextureImage("playerModel.png");
+		playerModelTx = new TextureImage("playerModel.png");
 
 		// A2 pyramid textures: each pyramid uses a different texture.
 		pyramidTx[0] = new TextureImage("3d-geometric-texture-copper_512x512.jpg");
 		pyramidTx[1] = new TextureImage("pyramid2_512x512.jpg");
 		pyramidTx[2] = new TextureImage("pyramidbyme_512x512.jpg");
 
-		sandTx = new TextureImage("sandbyme.jpg");
+		grassTx = new TextureImage("grass.png");
 		homeTx = new TextureImage("brick1.jpg");
 
-		grassTx = new TextureImage("grass.png");
+		// height map
 		heightMaptx = new TextureImage("heightmap.png");
+
+		// custom model textures
 		flashlightTx = new TextureImage("flashlightTx.png");
-		playerModelTx = new TextureImage("playerModel.png");
 		tableTx = new TextureImage("tableTx.png");
+		healthPotionTx = new TextureImage("health_potion.png");
 	}
 
 	@Override
@@ -268,138 +401,160 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 	@Override
 	public void buildObjects() {
-		Matrix4f initialTranslation, initialScale, initialRotation;
+		buildLocalAvatar();
+		buildInteractiveProps();
+		buildPyramids();
+		buildWorldDecor();
+		buildTerrain();
+		buildHealthPotion();
+		buildAxes();
+		buildHome();
+		buildHudIcons();
+		buildBuildPreview();
+	}
 
-		// A3 avatar: boy character replaces dolphin as the player avatar.
-		boy = new GameObject(GameObject.root(), boyS, boyTx);
-		initialTranslation = (new Matrix4f()).translation(0f, 0f, 6f);
-		initialScale = (new Matrix4f()).scaling(1.0f); // adjust if needed
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f));
-		boy.setLocalTranslation(initialTranslation);
-		boy.setLocalScale(initialScale);
-		boy.setLocalRotation(initialRotation);
+	private void buildLocalAvatar() {
+		ObjShape avatarShape = (selectedAvatar.compareTo("player") == 0) ? playerS : boyS;
+		TextureImage avatarTexture = (selectedAvatar.compareTo("player") == 0) ? playerAvatarTx : boyTx;
+
+		if (avatarShape == null)
+			throw new RuntimeException("avatarShape is null for selectedAvatar = " + selectedAvatar);
+
+		boy = new GameObject(GameObject.root(), avatarShape, avatarTexture);
+		boy.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
+		boy.setLocalScale((new Matrix4f()).scaling(getAvatarScale()));
+		boy.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
 		boy.getRenderStates().hasLighting(true);
+		boy.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
+		playerYaw = 180.0f;
+	}
 
-		// Imported model correction: rotate the mesh upright without changing the
-		// player object's movement/camera orientation.
-		boy.getRenderStates().setModelOrientationCorrection(
-				(new Matrix4f()).rotationX((float) java.lang.Math.toRadians(-90f)));
-
-		// Extra A2 objects
+	private void buildInteractiveProps() {
 		player = new GameObject(GameObject.root(), playerS, playerModelTx);
 		player.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 6f));
-		player.setLocalScale((new Matrix4f()).scaling(0.4f));
+		player.setLocalScale((new Matrix4f()).scaling(0.25f));
 		player.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
 
 		flashlight = new GameObject(GameObject.root(), flashlightS, flashlightTx);
-		flashlight.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
-		flashlight.setLocalScale((new Matrix4f()).scaling(0.5f));
+		flashlight.setLocalTranslation((new Matrix4f()).translation(0f, 0.5f, 6f));
+		flashlight.setLocalScale((new Matrix4f()).scaling(0.18f));
 		flashlight.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
 
 		table = new GameObject(GameObject.root(), tableS, tableTx);
 		table.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 8f));
 		table.setLocalScale((new Matrix4f()).scaling(0.4f));
+	}
 
-		// A2 pyramids: placed on y=0 to match the ground plane world.
+	private void buildPyramids() {
 		for (int i = 0; i < 3; i++) {
 			pyramids[i] = new GameObject(GameObject.root(), pyrS, pyramidTx[i]);
 			pyramids[i].setLocalScale((new Matrix4f()).scaling(5f));
 			pyramids[i].getRenderStates().hasLighting(true);
 		}
+
 		pyramids[0].setLocalTranslation((new Matrix4f()).translation(-24f, 0f, -10f));
 		pyramids[1].setLocalTranslation((new Matrix4f()).translation(34f, 0f, 0f));
 		pyramids[2].setLocalTranslation((new Matrix4f()).translation(18f, 0f, 10f));
+	}
 
-		// Terrain plane: hilly terrain with grass texture.
+	private void buildWorldDecor() {
+		dol = new GameObject(GameObject.root(), dolS, dolTx);
+		dol.setLocalTranslation((new Matrix4f()).translation(-8f, 0f, -12f));
+		dol.setLocalScale((new Matrix4f()).scaling(1.0f));
+		dol.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(45f)));
+		dol.getRenderStates().hasLighting(true);
+	}
+
+	private void buildTerrain() {
 		terrain = new GameObject(GameObject.root(), terrainShape, grassTx);
-		terrain.setLocalTranslation(new Matrix4f().translation(0f, 0f, 0f));
-		terrain.setHeightMap(heightMaptx);
+		terrain.setLocalTranslation(new Matrix4f().translation(0, 0, 0));
 		terrain.setLocalScale(new Matrix4f().scaling(200.0f, 20f, 200.0f));
-		terrain.getRenderStates().hasLighting(true);
+		terrain.setHeightMap(heightMaptx);
 		terrain.getRenderStates().setTiling(1);
 		terrain.getRenderStates().setTileFactor(10);
+	}
 
-		// A2 axes: kept from A1, with a toggle in toggleAxesVisibility.
+	private void buildHealthPotion() {
+		healthPotion = new GameObject(GameObject.root(), healthPotionS, healthPotionTx);
+		healthPotion.setLocalTranslation((new Matrix4f()).translation(3f, 0.15f, -3f));
+		healthPotion.setLocalScale((new Matrix4f()).scaling(0.15f));
+		healthPotion.setLocalRotation((new Matrix4f()).identity());
+		healthPotion.getRenderStates().hasLighting(true);
+		healthPotion.getRenderStates().isTransparent(true);
+		healthPotion.getRenderStates().setOpacity(0.4f);
+	}
+
+	private void buildAxes() {
 		axisX = new GameObject(GameObject.root(), linxS);
 		axisY = new GameObject(GameObject.root(), linyS);
 		axisZ = new GameObject(GameObject.root(), linzS);
-		(axisX.getRenderStates()).setColor(new Vector3f(1f, 0f, 0f));
-		(axisY.getRenderStates()).setColor(new Vector3f(0f, 1f, 0f));
-		(axisZ.getRenderStates()).setColor(new Vector3f(0f, 0f, 1f));
+		axisX.getRenderStates().setColor(new Vector3f(1f, 0f, 0f));
+		axisY.getRenderStates().setColor(new Vector3f(0f, 1f, 0f));
+		axisZ.getRenderStates().setColor(new Vector3f(0f, 0f, 1f));
+
 		Matrix4f lift = new Matrix4f().translation(0f, 0.1f, 0f);
 		axisX.setLocalTranslation(lift);
 		axisY.setLocalTranslation(lift);
 		axisZ.setLocalTranslation(lift);
+	}
 
-		// Home build: quads scaled and rotated so wall placement math stays aligned.
+	private void buildHome() {
 		float s = HOME_SCALE;
-		float w = HOME_W * s, h = HOME_H * s, d = HOME_D * s;
+		float w = HOME_W * s;
+		float h = HOME_H * s;
+		float d = HOME_D * s;
 		float floorY = HOME_FLOOR_Y;
-
 		float hw = w / 2f;
 		float hh = h / 2f;
 		float hd = d / 2f;
 
-		GameObject homeFloor = new GameObject(GameObject.root(), quadS, homeTx);
-		initialRotation = (new Matrix4f()).rotationX((float) java.lang.Math.toRadians(-90f));
-		initialScale = (new Matrix4f()).scaling(hw, hd, 1f);
-		initialTranslation = (new Matrix4f()).translation(0f, floorY, 0f);
-		homeFloor.setLocalRotation(initialRotation);
-		homeFloor.setLocalScale(initialScale);
-		homeFloor.setLocalTranslation(initialTranslation);
-		homeFloor.getRenderStates().hasLighting(true);
-
-		GameObject homeWallBack = new GameObject(GameObject.root(), quadS, homeTx);
-		initialScale = (new Matrix4f()).scaling(hw, hh, 1f);
-		initialTranslation = (new Matrix4f()).translation(0f, floorY + hh, -hd);
-		homeWallBack.setLocalScale(initialScale);
-		homeWallBack.setLocalTranslation(initialTranslation);
-		homeWallBack.getRenderStates().hasLighting(true);
-
-		GameObject homeWallLeft = new GameObject(GameObject.root(), quadS, homeTx);
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(90f));
-		initialScale = (new Matrix4f()).scaling(hd, hh, 1f);
-		initialTranslation = (new Matrix4f()).translation(-hw, floorY + hh, 0f);
-		homeWallLeft.setLocalRotation(initialRotation);
-		homeWallLeft.setLocalScale(initialScale);
-		homeWallLeft.setLocalTranslation(initialTranslation);
-		homeWallLeft.getRenderStates().hasLighting(true);
-
-		GameObject homeWallRight = new GameObject(GameObject.root(), quadS, homeTx);
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(-90f));
-		initialScale = (new Matrix4f()).scaling(hd, hh, 1f);
-		initialTranslation = (new Matrix4f()).translation(hw, floorY + hh, 0f);
-		homeWallRight.setLocalRotation(initialRotation);
-		homeWallRight.setLocalScale(initialScale);
-		homeWallRight.setLocalTranslation(initialTranslation);
-		homeWallRight.getRenderStates().hasLighting(true);
+		buildHomeQuad(
+				(new Matrix4f()).rotationX((float) java.lang.Math.toRadians(-90f)),
+				(new Matrix4f()).scaling(hw, hd, 1f),
+				(new Matrix4f()).translation(0f, floorY, 0f));
+		buildHomeQuad(
+				null,
+				(new Matrix4f()).scaling(hw, hh, 1f),
+				(new Matrix4f()).translation(0f, floorY + hh, -hd));
+		buildHomeQuad(
+				(new Matrix4f()).rotationY((float) java.lang.Math.toRadians(90f)),
+				(new Matrix4f()).scaling(hd, hh, 1f),
+				(new Matrix4f()).translation(-hw, floorY + hh, 0f));
+		buildHomeQuad(
+				(new Matrix4f()).rotationY((float) java.lang.Math.toRadians(-90f)),
+				(new Matrix4f()).scaling(hd, hh, 1f),
+				(new Matrix4f()).translation(hw, floorY + hh, 0f));
 
 		float doorW = 2.6f * s;
 		float sideW = (w - doorW) / 2f;
 		float hSideW = sideW / 2f;
+		Matrix4f frontRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f));
 
-		GameObject frontLeft = new GameObject(GameObject.root(), quadS, homeTx);
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f));
-		initialScale = (new Matrix4f()).scaling(hSideW, hh, 1f);
-		initialTranslation = (new Matrix4f()).translation(-(doorW / 2f + hSideW), floorY + hh, hd);
-		frontLeft.setLocalRotation(initialRotation);
-		frontLeft.setLocalScale(initialScale);
-		frontLeft.setLocalTranslation(initialTranslation);
-		frontLeft.getRenderStates().hasLighting(true);
+		buildHomeQuad(
+				frontRotation,
+				(new Matrix4f()).scaling(hSideW, hh, 1f),
+				(new Matrix4f()).translation(-(doorW / 2f + hSideW), floorY + hh, hd));
+		buildHomeQuad(
+				frontRotation,
+				(new Matrix4f()).scaling(hSideW, hh, 1f),
+				(new Matrix4f()).translation((doorW / 2f + hSideW), floorY + hh, hd));
 
-		GameObject frontRight = new GameObject(GameObject.root(), quadS, homeTx);
-		initialRotation = (new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f));
-		initialScale = (new Matrix4f()).scaling(hSideW, hh, 1f);
-		initialTranslation = (new Matrix4f()).translation((doorW / 2f + hSideW), floorY + hh, hd);
-		frontRight.setLocalRotation(initialRotation);
-		frontRight.setLocalScale(initialScale);
-		frontRight.setLocalTranslation(initialTranslation);
-		frontRight.getRenderStates().hasLighting(true);
+		buildHomeRoof(w, d, floorY + h);
+	}
 
+	private GameObject buildHomeQuad(Matrix4f rotation, Matrix4f scale, Matrix4f translation) {
+		GameObject quad = new GameObject(GameObject.root(), quadS, homeTx);
+		if (rotation != null)
+			quad.setLocalRotation(rotation);
+		quad.setLocalScale(scale);
+		quad.setLocalTranslation(translation);
+		quad.getRenderStates().hasLighting(true);
+		return quad;
+	}
+
+	private void buildHomeRoof(float w, float d, float wallTopY) {
 		float halfW = w / 2f;
 		float halfD = d / 2f;
-		float wallTopY = floorY + h;
-
 		float roofAngle = (float) java.lang.Math.toRadians(45f);
 		float roofRise = (float) java.lang.Math.tan(roofAngle) * halfW;
 		float slantLen = halfW / (float) java.lang.Math.cos(roofAngle);
@@ -417,24 +572,22 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		roofRight.setLocalRotation(
 				(new Matrix4f()).rotationZ(-roofAngle).rotateX((float) java.lang.Math.toRadians(90f)));
 		roofRight.setLocalTranslation((new Matrix4f()).translation(halfW / 2f, wallTopY + roofRise / 2f, 0f));
+	}
 
-		// A2 hierarchical objects: photos are children of the dolphin until they get
-		// placed on the home wall.
+	private void buildHudIcons() {
 		for (int i = 0; i < 3; i++) {
 			hudIcons[i] = new GameObject(boy, quadS, pyramidTx[i]);
 			hudIcons[i].getRenderStates().hasLighting(false);
-
 			hudIcons[i].setLocalScale((new Matrix4f()).scaling(0f));
 
 			float xOff = 0.55f - (i * 0.55f);
 			hudIcons[i].setLocalTranslation((new Matrix4f()).translation(xOff, 1.1f, -1.0f));
 			hudIcons[i].setLocalRotation((new Matrix4f()).identity());
-
 			iconCollected[i] = false;
 		}
+	}
 
-		// A3 building preview: a reusable wall segment is moved in front of the player
-		// while build mode is on.
+	private void buildBuildPreview() {
 		buildPreview = new GameObject(GameObject.root(), quadS, homeTx);
 		buildPreview.setLocalScale((new Matrix4f()).scaling(buildWallHalfW, buildWallHalfH, 1f));
 		buildPreview.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
@@ -455,32 +608,60 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		Light lightHome = new Light();
 		lightHome.setLocation(new Vector3f(0f, 8f, 0f));
 		engine.getSceneGraph().addLight(lightHome);
+
+		flashlightSpotlight = new Light();
+		flashlightSpotlight.setType(Light.LightType.SPOTLIGHT);
+		flashlightSpotlight.setAmbient(0.0f, 0.0f, 0.0f);
+		flashlightSpotlight.setDiffuse(0.95f, 0.92f, 0.82f);
+		flashlightSpotlight.setSpecular(1.0f, 0.97f, 0.88f);
+		flashlightSpotlight.setCutoffAngle(18.0f);
+		flashlightSpotlight.setOffAxisExponent(10.0f);
+		flashlightSpotlight.setLinearAttenuation(0.08f);
+		flashlightSpotlight.setQuadraticAttenuation(0.03f);
+		flashlightSpotlight.setLocation(new Vector3f(0f, -100f, 0f));
+		flashlightSpotlight.setDirection(new Vector3f(0f, 0f, -1f));
+		flashlightSpotlight.disable();
+		engine.getSceneGraph().addLight(flashlightSpotlight);
 	}
 
 	@Override
 	public void initializeGame() {
+		initializeFrameTiming();
+		configureWindow();
+		setupCameras();
+		setupNodeControllers();
+		setupInputs();
+		setupNetworkingIfNeeded();
+		installShutdownHandlers();
+	}
+
+	private void initializeFrameTiming() {
 		lastFrameTime = System.currentTimeMillis();
 		currFrameTime = System.currentTimeMillis();
 		elapsedTime = 0.0;
+	}
 
+	private void configureWindow() {
 		(engine.getRenderSystem()).setWindowDimensions(1900, 1000);
+	}
 
-		// A2 orbit camera controller: main viewport camera orbits around the dolphin.
+	private void setupCameras() {
 		Camera mainCam = engine.getRenderSystem().getViewport("MAIN").getCamera();
 		orbitCam = new CameraOrbit3D(mainCam, boy);
-		orbitCam.setRadius(4.5f);
-		orbitCam.setElevationDeg(15f);
-		orbitCam.setAzimuthDeg(180f);
+		orbitCam.setRadius(orbitRadius);
+		orbitCam.setElevationDeg(orbitElevationDeg);
+		orbitCam.setAzimuthDeg(orbitAzimuthDeg);
 		orbitCam.update();
+		applyCameraModeOffset();
 
 		// A2 second viewport: overhead view of the same world with pan and zoom
 		// controls.
 		engine.getRenderSystem().addViewport("OVER", OVER_BOTTOM, OVER_LEFT, OVER_W, OVER_H);
 		Camera overCam = engine.getRenderSystem().getViewport("OVER").getCamera();
 		setOverheadCamera(overCam);
+	}
 
-		// A2 node controllers: photographed pyramid rotates, collected photo bobs while
-		// attached to dolphin.
+	private void setupNodeControllers() {
 		photoSpin = new RotationController(engine, new Vector3f(0, 1, 0), 0.002f);
 		engine.getSceneGraph().addNodeController(photoSpin);
 		photoSpin.enable();
@@ -488,10 +669,15 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		activatedPyramidBob = new BobbingController(engine, 0.35f, 1.2f);
 		engine.getSceneGraph().addNodeController(activatedPyramidBob);
 		activatedPyramidBob.enable();
+	}
 
+	private void setupInputs() {
 		im = engine.getInputManager();
+		setupKeyboardInputs();
+		setupGamepadInputs();
+	}
 
-		// A2 dolphin controls: movement stays on ground, jump is temporary.
+	private void setupKeyboardInputs() {
 		im.associateActionWithAllKeyboards(Key.W, new MoveAction(this, 1f),
 				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		im.associateActionWithAllKeyboards(Key.S, new MoveAction(this, -1f),
@@ -507,11 +693,19 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		im.associateActionWithAllKeyboards(Key.D, new StrafeAction(this, 1f),
 				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
-		im.associateActionWithAllKeyboards(Key.LSHIFT, new JumpAction(this),
+		im.associateActionWithAllKeyboards(Key.LSHIFT, new RunAction(this),
+				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+
+		im.associateActionWithAllKeyboards(Key.SPACE, new JumpAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
-		// A2 win action: photos move to the home wall using SPACE.
-		im.associateActionWithAllKeyboards(Key.SPACE, new PlacePhotosAction(this),
+		im.associateActionWithAllKeyboards(Key.H, new UsePotionAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.F1, new ToggleHelpAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+
+		// A2 win action: photos move to the home wall using ENTER.
+		im.associateActionWithAllKeyboards(Key.RETURN, new PlacePhotosAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
 		// A2 photo action: pyramid activates after being photographed.
@@ -550,7 +744,50 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		// A2 axes toggle.
 		im.associateActionWithAllKeyboards(Key.T, new ToggleAxesAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key._4, new EquipFlashlightAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key._5, new EquipPotionAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key._6, new UnequipItemAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
+		// Skybox switching.
+		im.associateActionWithAllKeyboards(Key._1, new SkyboxAction(this, 1),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key._2, new SkyboxAction(this, 2),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key._3, new SkyboxAction(this, 3),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+
+		// A3 building controls: player can toggle build mode, place walls, remove
+		// walls, and raise or lower the build height.
+		im.associateActionWithAllKeyboards(Key.B, new ToggleBuildAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.V, new PlaceBuildWallAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.C, new RemoveBuildWallAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.R, new RotateBuildWallAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.F, new SwitchBuildPieceAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.TAB, new ToggleMouseLookAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.PERIOD, new RaiseBuildHeightAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.M, new ToggleFullMapAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.N, new LowerBuildHeightAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+
+		// A3 camera controls: G cycles camera mode and Y swaps shoulder side.
+		im.associateActionWithAllKeyboards(Key.G, new ToggleCameraModeAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+		im.associateActionWithAllKeyboards(Key.Y, new SwapShoulderAction(this),
+				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+	}
+
+	private void setupGamepadInputs() {
 		im.associateActionWithAllGamepads(Axis.Y, new MoveAxisAction(this),
 				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 		im.associateActionWithAllGamepads(Axis.X, new StrafeAxisAction(this),
@@ -578,7 +815,6 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		im.associateActionWithAllGamepads(Axis.POV, new PovOverPanAction(this),
 				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-
 		im.associateActionWithAllGamepads(Axis.Z, new OverZoomAxisAction(this),
 				InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
@@ -586,56 +822,94 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 		im.associateActionWithAllGamepads(Button._3, new JumpAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-
-		im.associateActionWithAllKeyboards(Key.H, new ToggleHelpAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-
 		im.associateActionWithAllGamepads(Button._9, new ToggleHelpAction(this),
 				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+	}
 
-		// Skybox switching.
-		im.associateActionWithAllKeyboards(Key._1, new SkyboxAction(this, 1),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key._2, new SkyboxAction(this, 2),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key._3, new SkyboxAction(this, 3),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+	private void setupNetworkingIfNeeded() {
+		if (isMultiplayer)
+			setupNetworking();
+	}
 
-		// A3 building controls: player can toggle build mode, place walls, remove
-		// walls, and raise or lower the build height.
-		im.associateActionWithAllKeyboards(Key.B, new ToggleBuildAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.V, new PlaceBuildWallAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.C, new RemoveBuildWallAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.R, new RotateBuildWallAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.F, new SwitchBuildPieceAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.TAB, new ToggleMouseLookAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.M, new RaiseBuildHeightAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-		im.associateActionWithAllKeyboards(Key.N, new LowerBuildHeightAction(this),
-				InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+	private void installShutdownHandlers() {
+		java.lang.Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			sendByeAndClose();
+		}));
+
+		try {
+			JFrame frame = (JFrame) SwingUtilities.getWindowAncestor(engine.getRenderSystem().getGLCanvas());
+			if (frame != null) {
+				frame.addWindowListener(new WindowAdapter() {
+					@Override
+					public void windowClosing(WindowEvent e) {
+						sendByeAndClose();
+					}
+				});
+			}
+		} catch (Exception e) {
+			System.out.println("unable to attach window close handler");
+		}
+	}
+
+	public GameObject getBoy() {
+		return boy;
+	}
+
+	public float getPlayerYaw() {
+		return playerYaw;
+	}
+
+	public GameObject getFlashlight() {
+		return flashlight;
+	}
+
+	public GameObject getTable() {
+		return table;
+	}
+
+	public GameObject getPlayer() {
+		return player;
 	}
 
 	@Override
 	public void update() {
+		ensureMouseModeInitialized();
+		updateFrameTiming();
+		updateTransientTimers();
+		processPlayerInput();
+		syncPlayerToTerrain();
+		updateCameraLimits();
+		checkCrash();
+		updateMainCamera();
+		updateWorldState();
+		processNetworking((float) elapsedTime);
+		updateHUD();
+		updateRunState((float) elapsedTime);
+	}
+
+	private void ensureMouseModeInitialized() {
 		if (!mouseModeInitiated)
 			initMouseMode();
+	}
 
+	private void updateFrameTiming() {
 		lastFrameTime = currFrameTime;
 		currFrameTime = System.currentTimeMillis();
 		elapsedTime = (currFrameTime - lastFrameTime) / 1000.0;
+	}
+
+	private void updateTransientTimers() {
+		if (damageCooldown > 0.0)
+			damageCooldown -= elapsedTime;
 
 		if (eventHold > 0.0) {
 			eventHold -= elapsedTime;
 			if (eventHold <= 0.0)
 				eventMsg = "";
 		}
+	}
 
+	private void processPlayerInput() {
 		padMove = 0.0f;
 		padStrafe = 0.0f;
 
@@ -643,23 +917,66 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		// Gamepad movement runs once per frame so diagonal speed stays consistent.
 		applyPadMovement((float) elapsedTime);
-
 		updateJump((float) elapsedTime);
+	}
 
-		// Update altitude of player based on height map
+	private void syncPlayerToTerrain() {
 		Vector3f loc = boy.getWorldLocation();
-		float groundHeight = terrain.getHeight(loc.x(), loc.z());
-		float y = onGround ? groundHeight : loc.y;
-		boy.setLocalLocation(new Vector3f(loc.x(), y, loc.z()));
+		float groundY = getGroundHeight(loc.x(), loc.z());
 
-		checkCrash();
+		if (onGround) {
+			boolean yChanged = java.lang.Math.abs(loc.y - groundY) > 0.001f;
+			boy.setLocalLocation(new Vector3f(loc.x(), groundY, loc.z()));
 
-		if (orbitCam != null)
-			orbitCam.update();
+			if (yChanged)
+				sendPlayerTransform();
+		}
+	}
 
+	private void updateMainCamera() {
+		Camera mainCam = engine.getRenderSystem().getViewport("MAIN").getCamera();
+
+		if (fullMapMode) {
+			Vector3f p = boy.getWorldLocation();
+
+			mainCam.setLocation(new Vector3f(p.x, 60f, p.z));
+			mainCam.setN(new Vector3f(0f, -1f, 0f));
+			mainCam.setU(new Vector3f(1f, 0f, 0f));
+			mainCam.setV(new Vector3f(0f, 0f, -1f));
+		} else {
+			if (orbitCam != null) {
+				orbitCam.update();
+				applyCameraModeOffset();
+			}
+		}
+	}
+
+	private void updateWorldState() {
+		updateCarriedFlashlightPose();
+		updateCarriedPotionPose();
 		updateBuildPreview();
+		updateFlashlightHeight();
+		updateHealthPotionHeight();
+		checkItemPickups();
+		updateFlashlightSpotlight();
+	}
 
-		updateHUD();
+	private void updateRunState(float dt) {
+		runHoldTime -= dt;
+		if (runHoldTime < 0.0f)
+			runHoldTime = 0.0f;
+	}
+
+	private void updateCameraLimits() {
+		if (selectedAvatar.compareTo("player") == 0) {
+			// restrict downward look more to avoid clipping into head
+			minOrbitElevationDeg = -10.0f;
+			maxOrbitElevationDeg = 76.0f;
+		} else {
+			// boy can look more freely
+			minOrbitElevationDeg = -10.0f;
+			maxOrbitElevationDeg = 80.0f;
+		}
 	}
 
 	private void showEvent(String msg, double seconds) {
@@ -667,21 +984,21 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		eventHold = seconds;
 	}
 
-	// HUD1 is always score and event text
-	// HUD2 and HUD3 are either the game guide or the help overlay
-	// HUD4 is always the overhead viewport text showing dolphin world position
+	// HUD1 is always score and event text.
+	// HUD2 and HUD3 are either the game guide or the help overlay.
+	// HUD4 is always the overhead viewport text showing player world position.
 	private void updateHUD() {
 		HUDmanager hud = engine.getHUDmanager();
 
-		String top = "COLLECTED " + score + "/3";
+		String top = "HEALTH " + health + "/" + maxHealth + "   |   COLLECTED " + score + "/3";
 		if (!eventMsg.isEmpty())
 			top = top + "   |   " + eventMsg;
 		hud.setHUD1(top, new Vector3f(0.75f, 0.75f, 0.35f), 15, 15);
 
 		if (helpPage == 1) {
 			// Help page for keyboard controls
-			String line1 = "KEY W S MOVE   A D TURN   LEFT RIGHT STRAFE   SHIFT JUMP   KEY P PHOTO   SPACE PLACE";
-			String line2 = "T AXES   Q E ORBIT   UP DOWN ELEVATE   Z X ZOOM   I K J L PAN OVER   U O OVER ZOOM";
+			String line1 = "KEY W S MOVE   A D STRAFE   LEFT RIGHT TURN   SHIFT RUN   SPACE JUMP   P PHOTO   ENTER PLACE";
+			String line2 = "T AXES G CAMERA Y SWAP SHOULDER Q E ORBIT UP DOWN ELEVATE Z X ZOOM I K J L PAN OVER U O OVER ZOOM";
 			hud.setHUD2(line1, new Vector3f(0, 0, 0), 15, 40);
 			hud.setHUD3(line2, new Vector3f(0, 0, 0), 15, 65);
 		} else if (helpPage == 2) {
@@ -697,16 +1014,16 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			hud.setHUD3(lines[1], new Vector3f(0, 0, 0), 15, 65);
 		}
 
-		// Overhead viewport HUD shows dolphin world position
-		Vector3f p = boy.getWorldLocation();
-		String pos = String.format("POS (%.1f, %.1f, %.1f)", p.x, p.y, p.z);
-		int pad = 60; // padding from the screen edge
-		int approxCharW = 8; // rough pixels per character
-		int x = winW() - pad - (pos.length() * approxCharW);
-		if (x < pad)
-			x = pad; // keep it on screen if the window is small
-
-		hud.setHUD4(pos, new Vector3f(0, 0, 0), x, 15);
+		// Overhead viewport HUD shows player world position
+		if (!fullMapMode) {
+			Vector3f p = boy.getWorldLocation();
+			String pos = String.format("POS (%.1f, %.1f, %.1f)", p.x, p.y, p.z);
+			int x = overHudLeftPx() + 12;
+			int y = overHudTopPx() + 18;
+			hud.setHUD4(pos, new Vector3f(0, 0, 0), x, y);
+		} else {
+			hud.setHUD4("", new Vector3f(0, 0, 0), 0, 0);
+		}
 	}
 
 	private String[] buildGuideLines() {
@@ -728,7 +1045,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			String pieceName = (buildPieceType == 0) ? "WALL" : "ROOF";
 
 			return new String[] {
-					"BUILD MODE: V PLACE   C REMOVE   R ROTATE   F SWITCH TYPE   TAB LOCK/UNLOCK   M UP   N DOWN",
+					"BUILD MODE: V PLACE   C REMOVE   R ROTATE   F SWITCH TYPE   TAB LOCK/UNLOCK   . UP   N DOWN",
 					"PIECE " + pieceName + "   HEIGHT " + buildHeightLevel + "   PRESS B TO EXIT BUILD MODE"
 			};
 		}
@@ -737,12 +1054,12 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			if (distanceToHome() <= homeRange) {
 				return new String[] {
 						"HOME REACHED: PLACE PHOTOS",
-						"PRESS SPACE OR A ON CONTROLLER"
+						"PRESS ENTER OR A ON CONTROLLER"
 				};
 			}
 			return new String[] {
 					"ALL PHOTOS TAKEN: RETURN HOME",
-					"FLY HOME THEN PRESS SPACE OR A ON CONTROLLER"
+					"FLY HOME THEN PRESS ENTER OR A ON CONTROLLER"
 			};
 		}
 
@@ -756,7 +1073,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		return new String[] {
 				"FIND A PYRAMID AND GET CLOSER",
-				"PRESS B TO ENTER BUILD MODE   TAB LOCK/UNLOCK MOUSE"
+				"PRESS B TO ENTER BUILD MODE TAB LOCK/UNLOCK MOUSE G CAMERA Y SWAP"
 		};
 	}
 
@@ -781,13 +1098,23 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		if (isLost() || isWon())
 			return;
 
+		if (damageCooldown > 0.0)
+			return;
+
 		Vector3f dLoc = boy.getWorldLocation();
 
 		for (int i = 0; i < 3; i++) {
 			float dist = dLoc.distance(pyramids[i].getWorldLocation());
 			if (dist < pyramidCollisionRadius(i)) {
-				lost = true;
-				showEvent("CRASH", 2.0);
+				damagePlayer(pyramidDamage);
+				damageCooldown = damageCooldownTime;
+
+				showEvent("TOOK DAMAGE -" + pyramidDamage, 1.0);
+
+				if (health <= 0) {
+					lost = true;
+					showEvent("OUT OF HEALTH", 2.0);
+				}
 				return;
 			}
 		}
@@ -842,16 +1169,21 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		score++;
 		showEvent("PICTURE TAKEN", 1.0);
 
-		hudIcons[idx].setLocalScale((new Matrix4f()).scaling(0.30f, 0.21f, 1f));
+		// HUD photos are parented to the avatar, so compensate for avatar scale so
+		// both avatar types show the same world-size photo while it is attached.
+		hudIcons[idx].setLocalScale(getCollectedHudIconScale());
 
 		photoSpin.addTarget(pyramids[idx]);
 		activatedPyramidBob.addTarget(hudIcons[idx]);
+
+		if (protClient != null && isClientConnected)
+			protClient.sendPhotoMessage(idx);
 
 		if (score == 3)
 			showEvent("ALL PHOTOS TAKEN  RETURN HOME", 2.0);
 	}
 
-	// A2 win action: SPACE places photos on the wall when close enough to home.
+	// A2 win action: ENTER places photos on the wall when close enough to home.
 	public void tryPlacePhotos() {
 		if (isLost())
 			return;
@@ -870,9 +1202,79 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		placePhotosOnWall();
 		won = true;
 
+		if (protClient != null && isClientConnected)
+			protClient.sendPlacePhotosMessage();
+
 		activatedPyramidBob.disable();
 
 		showEvent("PHOTOS PLACED", 2.0);
+	}
+
+	public void applyRemoteBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
+		String key = (pieceType == 0) ? String.format("%.2f,%.2f,%.2f,W,%d", p.x, p.y, p.z, modeType)
+				: String.format("%.2f,%.2f,%.2f,R,%d", p.x, p.y, p.z, roofDir);
+		if (wallMap.containsKey(key))
+			return;
+
+		GameObject piece = new GameObject(GameObject.root(), quadS, homeTx);
+		if (pieceType == 0)
+			piece.setLocalScale((new Matrix4f()).scaling(buildWallHalfW, buildWallHalfH, 1f));
+		else
+			piece.setLocalScale((new Matrix4f()).scaling(1.414f, buildWallHalfH, 1f));
+
+		// Temporarily swap build state to reuse existing rotation logic
+		int oldPiece = buildPieceType, oldMode = buildModeType, oldRoof = buildRoofDir;
+		buildPieceType = pieceType;
+		buildModeType = modeType;
+		buildRoofDir = roofDir;
+
+		piece.setLocalRotation(getBuildPieceRotation());
+		piece.setLocalTranslation((new Matrix4f()).translation(p));
+		piece.getRenderStates().hasLighting(true);
+
+		buildPieceType = oldPiece;
+		buildModeType = oldMode;
+		buildRoofDir = oldRoof;
+
+		placedWalls.add(piece);
+		wallMap.put(key, piece);
+	}
+
+	public void applyRemoteRemoveBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
+		String key = (pieceType == 0) ? String.format("%.2f,%.2f,%.2f,W,%d", p.x, p.y, p.z, modeType)
+				: String.format("%.2f,%.2f,%.2f,R,%d", p.x, p.y, p.z, roofDir);
+		GameObject piece = wallMap.get(key);
+		if (piece != null) {
+			piece.getRenderStates().disableRendering();
+			placedWalls.remove(piece);
+			wallMap.remove(key);
+		}
+	}
+
+	public void applyRemotePhoto(int idx) {
+		if (idx < 0 || idx >= 3 || iconCollected[idx])
+			return;
+
+		iconCollected[idx] = true;
+		score++;
+
+		// HUD photos are parented to the avatar, so compensate for avatar scale so
+		// both avatar types show the same world-size photo while it is attached.
+		hudIcons[idx].setLocalScale(getCollectedHudIconScale());
+
+		photoSpin.addTarget(pyramids[idx]);
+		activatedPyramidBob.addTarget(hudIcons[idx]);
+
+		showEvent("REMOTE PLAYER TOOK PHOTO", 1.5);
+	}
+
+	public void applyRemotePlacePhotos() {
+		if (won)
+			return;
+		placePhotosOnWall();
+		won = true;
+		activatedPyramidBob.disable();
+		showEvent("REMOTE PLAYER PLACED PHOTOS", 2.0);
 	}
 
 	private void placePhotosOnWall() {
@@ -925,6 +1327,18 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			overY = 120f;
 
 		setOverheadCamera(engine.getRenderSystem().getViewport("OVER").getCamera());
+	}
+
+	public void toggleFullMap() {
+		fullMapMode = !fullMapMode;
+
+		if (fullMapMode) {
+			engine.getRenderSystem().getViewport("OVER").setEnabled(false);
+			showEvent("MAP OPEN", 1.0);
+		} else {
+			engine.getRenderSystem().getViewport("OVER").setEnabled(true);
+			showEvent("MAP CLOSED", 1.0);
+		}
 	}
 
 	// A2 axes toggle: enableRendering and disableRendering keeps the scenegraph
@@ -1150,6 +1564,9 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		placedWalls.add(piece);
 		wallMap.put(key, piece);
 
+		if (protClient != null && isClientConnected)
+			protClient.sendBuildMessage(buildPieceType, buildModeType, buildRoofDir, p);
+
 		if (buildPieceType == 0)
 			showEvent("WALL PLACED", 0.8);
 		else
@@ -1175,15 +1592,18 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		placedWalls.remove(piece);
 		wallMap.remove(key);
 
+		if (protClient != null && isClientConnected)
+			protClient.sendRemoveBuildMessage(buildPieceType, buildModeType, buildRoofDir, p);
+
 		showEvent("PIECE REMOVED", 0.8);
 	}
 
 	private float snap(float v, float step) {
-		return Math.round(v / step) * step;
+		return java.lang.Math.round(v / step) * step;
 	}
 
 	private float snapToCellCenter(float v, float step) {
-		return (Math.round(v / step - 0.5f) + 0.5f) * step;
+		return (java.lang.Math.round(v / step - 0.5f) + 0.5f) * step;
 	}
 
 	private Vector3f getBuildPiecePosition() {
@@ -1271,50 +1691,199 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		}
 	}
 
+	// Applies a simple translation to the main camera after the orbit camera has
+	// already set its normal behind-the-player orientation.
+	private void applyCameraModeOffset() {
+		if (orbitCam == null)
+			return;
+
+		Camera cam = engine.getRenderSystem().getViewport("MAIN").getCamera();
+
+		if (cameraMode == 0)
+			return;
+
+		if (cameraMode == 1 || cameraMode == 2) {
+			Vector3f loc = cam.getLocation();
+			Vector3f u = new Vector3f(cam.getU()).normalize();
+			Vector3f v = new Vector3f(cam.getV()).normalize();
+
+			float side = shoulderOffsetX;
+			if (cameraMode == 2)
+				side = -side;
+
+			Vector3f newLoc = new Vector3f(loc)
+					.add(new Vector3f(u).mul(side))
+					.add(new Vector3f(v).mul(shoulderOffsetY));
+
+			cam.setLocation(newLoc);
+			return;
+		}
+
+		if (cameraMode == 3) {
+			Vector3f playerLoc = boy.getWorldLocation();
+
+			// Use the avatar's forward direction, not the orbit camera's current N.
+			Vector3f forward = new Vector3f(dolphinForward()).normalize();
+
+			// Convert orbit elevation into a first-person pitch.
+			// 15 degrees is your starting third-person elevation, so make that the
+			// "look straight ahead" reference for first person.
+			float pitchDeg = 15.0f - orbitElevationDeg;
+			float pitchRad = (float) java.lang.Math.toRadians(pitchDeg);
+
+			float horiz = (float) java.lang.Math.cos(pitchRad);
+			forward.x *= horiz;
+			forward.z *= horiz;
+			forward.y = (float) java.lang.Math.sin(pitchRad);
+			forward.normalize();
+
+			// Put camera at eye level and slightly in front of the avatar so it is not
+			// inside the head/body mesh.
+			Vector3f newLoc = new Vector3f(playerLoc)
+					.add(0f, getFirstPersonEyeHeight(), 0f)
+					.add(new Vector3f(forward).mul(getFirstPersonForwardOffset()));
+
+			// Build camera basis vectors
+			Vector3f worldUp = new Vector3f(0f, 1f, 0f);
+			Vector3f u = new Vector3f(forward).cross(worldUp).normalize();
+			Vector3f v = new Vector3f(u).cross(forward).normalize();
+
+			cam.setLocation(newLoc);
+			cam.setN(forward);
+			cam.setU(u);
+			cam.setV(v);
+			return;
+		}
+	}
+
+	private float getFirstPersonEyeHeight() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 1.65f;
+		return 1.80f;
+	}
+
+	private float getFirstPersonForwardOffset() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.32f;
+		return 0.35f;
+	}
+
+	// Cycles camera mode and updates orbit parameters.
+	public void toggleCameraMode() {
+		cameraMode++;
+		if (cameraMode > 3)
+			cameraMode = 0;
+
+		switch (cameraMode) {
+			case 0:
+				orbitRadius = 4.5f;
+				showEvent("CAMERA BEHIND", 1.0);
+				break;
+			case 1:
+				orbitRadius = 4.5f;
+				showEvent("CAMERA RIGHT SHOULDER", 1.0);
+				break;
+			case 2:
+				orbitRadius = 4.5f;
+				showEvent("CAMERA LEFT SHOULDER", 1.0);
+				break;
+			case 3:
+				orbitRadius = 0.0f;
+				showEvent("CAMERA FIRST PERSON", 1.0);
+				break;
+		}
+		orbitCam.setRadius(orbitRadius);
+		orbitCam.update();
+		updateCameraLimits();
+		applyCameraModeOffset();
+	}
+
+	// Swaps the shoulder camera side.
+	public void swapShoulderCamera() {
+		if (cameraMode == 1) {
+			cameraMode = 2;
+			showEvent("CAMERA LEFT SHOULDER", 1.0);
+		} else if (cameraMode == 2) {
+			cameraMode = 1;
+			showEvent("CAMERA RIGHT SHOULDER", 1.0);
+		} else {
+			return;
+		}
+		applyCameraModeOffset();
+	}
+
 	// A2 orbit controls: orbit, elevation, and zoom update camera state without
 	// changing dolphin heading.
 	public void doOrbit(float input, float time) {
 		if (orbitCam == null)
 			return;
 		float orbitSpeed = 90.0f;
-		orbitCam.orbit(input * orbitSpeed * time);
+		orbitAzimuthDeg += input * orbitSpeed * time;
+		orbitCam.setAzimuthDeg(orbitAzimuthDeg);
 		orbitCam.update();
+		applyCameraModeOffset();
 	}
 
 	public void doElevate(float input, float time) {
+		if (isLost() || isWon())
+			return;
+
 		if (orbitCam == null)
 			return;
+
 		float elevSpeed = 70.0f;
-		orbitCam.elevate(input * elevSpeed * time);
+		orbitElevationDeg += input * elevSpeed * time;
+
+		if (orbitElevationDeg < minOrbitElevationDeg)
+			orbitElevationDeg = minOrbitElevationDeg;
+		if (orbitElevationDeg > maxOrbitElevationDeg)
+			orbitElevationDeg = maxOrbitElevationDeg;
+
+		orbitCam.setElevationDeg(orbitElevationDeg);
 		orbitCam.update();
+		applyCameraModeOffset();
 	}
 
 	public void doZoom(float input, float time) {
 		if (orbitCam == null)
 			return;
 		float zoomSpeed = 6.0f;
-		orbitCam.zoom(input * zoomSpeed * time);
+		orbitRadius += input * zoomSpeed * time;
+
+		if (orbitRadius < 0.05f)
+			orbitRadius = 0.05f;
+		if (orbitRadius > 12.0f)
+			orbitRadius = 12.0f;
+
+		orbitCam.setRadius(orbitRadius);
 		orbitCam.update();
+		applyCameraModeOffset();
 	}
 
-	// A2 ground movement: x and z movement is allowed, y stays at 0 unless jump is
-	// active.
+	private float getGroundHeight(float x, float z) {
+		return terrain.getHeight(x, z);
+	}
+
+	// A2 ground movement: x and z movement is allowed, y stays on terrain unless
+	// jump is active.
 	public void doMove(float input, float time) {
 		if (isLost())
 			return;
 		if (isWon())
 			return;
 
-		float dist = moveSpeed * input * time;
+		float dist = getCurrentMoveSpeed() * input * time;
 
 		Vector3f pos = boy.getWorldLocation();
 		Vector3f fwd = dolphinForward();
 
 		Vector3f newPos = new Vector3f(pos).add(new Vector3f(fwd).mul(dist));
 
-		newPos.y = onGround ? 0.0f : pos.y;
+		newPos.y = onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
 
 		boy.setLocalLocation(newPos);
+
+		sendPlayerTransform();
 	}
 
 	public void doStrafe(float dir, float time) {
@@ -1323,7 +1892,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		if (isWon())
 			return;
 
-		float dist = moveSpeed * dir * time;
+		float dist = getCurrentMoveSpeed() * dir * time;
 
 		Vector3f pos = boy.getWorldLocation();
 		Vector3f rt = new Vector3f(boy.getWorldRightVector()).normalize();
@@ -1335,9 +1904,11 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		Vector3f newPos = new Vector3f(pos).add(right.mul(dist));
 
-		newPos.y = onGround ? 0.0f : pos.y;
+		newPos.y = onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
 
 		boy.setLocalLocation(newPos);
+
+		sendPlayerTransform();
 	}
 
 	// A2 global yaw: uses globalYaw so turning is around world y, not local y.
@@ -1351,6 +1922,9 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		float ang = yawSpeed * input * time;
 
 		boy.globalYaw(ang);
+		playerYaw += (float) java.lang.Math.toDegrees(ang);
+
+		sendPlayerTransform();
 	}
 
 	public void doPitch() {
@@ -1369,6 +1943,8 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 
 		float jumpSpeed = 7.5f;
 		yVel = jumpSpeed;
+
+		sendPlayerTransform();
 	}
 
 	private void applyPadMovement(float dt) {
@@ -1396,15 +1972,310 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		yVel += gravity * dt;
 
 		Vector3f pos = boy.getWorldLocation();
+		float groundY = getGroundHeight(pos.x, pos.z);
 		float newY = pos.y + yVel * dt;
 
-		if (newY <= 0.0f) {
-			newY = 0.0f;
+		if (newY <= groundY) {
+			newY = groundY;
 			yVel = 0.0f;
 			onGround = true;
 		}
 
 		boy.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
+
+		sendPlayerTransform();
+	}
+
+	private void updateHealthPotionHeight() {
+		if (healthPotion == null || terrain == null)
+			return;
+
+		if (healthPotionSnappedToTerrain || hasPotion || potionUsed)
+			return;
+
+		Vector3f p = healthPotion.getWorldLocation();
+		float groundY = terrain.getHeight(p.x, p.z);
+
+		healthPotion.setLocalTranslation(
+				(new Matrix4f()).translation(p.x, groundY + potionLift, p.z));
+		healthPotionSnappedToTerrain = true;
+	}
+
+	private void updateFlashlightHeight() {
+		if (flashlight == null || terrain == null)
+			return;
+
+		if (flashlightSnappedToTerrain || hasFlashlight)
+			return;
+
+		Vector3f p = flashlight.getWorldLocation();
+		float groundY = terrain.getHeight(p.x, p.z);
+
+		flashlight.setLocalTranslation(
+				(new Matrix4f()).translation(p.x, groundY + flashlightLift, p.z));
+		flashlightSnappedToTerrain = true;
+	}
+
+	private void updateCarriedFlashlightPose() {
+		if (flashlight == null || !hasFlashlight)
+			return;
+
+		if (flashlight.getParent() != boy) {
+			flashlight.setParent(boy);
+			flashlight.propagateRotation(true);
+			flashlight.applyParentRotationToPosition(true);
+			flashlight.propagateScale(false);
+		}
+
+		flashlight.setLocalTranslation((new Matrix4f()).translation(getFlashlightCarryLocalOffset()));
+		flashlight.setLocalScale((new Matrix4f()).scaling(getFlashlightCarryScale()));
+		flashlight.setLocalRotation(getFlashlightCarryRotation());
+	}
+
+	private Matrix4f getFlashlightCarryRotation() {
+		return (new Matrix4f()).identity();
+	}
+
+	private Vector3f getFlashlightCarryLocalOffset() {
+		return new Vector3f(
+				getFlashlightCarrySideOffset(),
+				getFlashlightCarryHeight(),
+				getFlashlightCarryForwardOffset());
+	}
+
+	private float getFlashlightCarryScale() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.14f;
+		return 0.18f;
+	}
+
+	private float getFlashlightCarrySideOffset() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return -1.18f;
+		return -0.95f;
+	}
+
+	private float getFlashlightCarryForwardOffset() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.08f;
+		return 0.10f;
+	}
+
+	private float getFlashlightCarryHeight() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 1.14f;
+		return 1.34f;
+	}
+
+	private float getPotionCarryScale() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.12f;
+		return 0.10f;
+	}
+
+	private void updateCarriedPotionPose() {
+		if (healthPotion == null || !hasPotion || potionUsed)
+			return;
+
+		if (healthPotion.getParent() != boy) {
+			healthPotion.setParent(boy);
+			healthPotion.propagateRotation(true);
+			healthPotion.applyParentRotationToPosition(true);
+			healthPotion.propagateScale(false);
+		}
+
+		healthPotion.setLocalTranslation((new Matrix4f()).translation(getPotionCarryLocalOffset()));
+		healthPotion.setLocalScale((new Matrix4f()).scaling(getPotionCarryScale()));
+		healthPotion.setLocalRotation(getPotionCarryRotation());
+	}
+
+	private Vector3f getPotionCarryLocalOffset() {
+		return new Vector3f(
+				getPotionCarrySideOffset(),
+				getPotionCarryHeight(),
+				getPotionCarryForwardOffset());
+	}
+
+	private float getPotionCarrySideOffset() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return -1.14f;
+		return -0.92f;
+	}
+
+	private float getPotionCarryForwardOffset() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.10f;
+		return 0.12f;
+	}
+
+	private float getPotionCarryHeight() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 1.12f;
+		return 1.32f;
+	}
+
+	private Matrix4f getPotionCarryRotation() {
+		return (new Matrix4f()).identity();
+	}
+
+	private void updateFlashlightSpotlight() {
+		if (flashlightSpotlight == null)
+			return;
+
+		if (!hasFlashlight || equippedItem != ITEM_FLASHLIGHT) {
+			flashlightSpotlight.disable();
+			return;
+		}
+
+		Vector3f forward = new Vector3f(dolphinForward());
+		forward.y = 0f;
+		if (forward.lengthSquared() < 0.0001f)
+			forward.set(0f, 0f, -1f);
+		forward.normalize();
+		Vector3f lightPos = new Vector3f(flashlight.getWorldLocation())
+				.add(new Vector3f(forward).mul(flashlightBeamForwardOffset))
+				.add(0f, flashlightBeamLift, 0f);
+
+		flashlightSpotlight.setLocation(lightPos);
+		flashlightSpotlight.setDirection(forward);
+		flashlightSpotlight.enable();
+	}
+
+	private void healPlayer(int amount) {
+		health += amount;
+		if (health > maxHealth)
+			health = maxHealth;
+	}
+
+	private void damagePlayer(int amount) {
+		health -= amount;
+		if (health < 0)
+			health = 0;
+	}
+
+	private void updateEquippedItemVisibility() {
+		if (flashlight != null && hasFlashlight) {
+			if (equippedItem == ITEM_FLASHLIGHT)
+				flashlight.getRenderStates().enableRendering();
+			else
+				flashlight.getRenderStates().disableRendering();
+		}
+
+		if (healthPotion != null) {
+			if (hasPotion && !potionUsed) {
+				if (equippedItem == ITEM_POTION)
+					healthPotion.getRenderStates().enableRendering();
+				else
+					healthPotion.getRenderStates().disableRendering();
+			} else if (potionUsed) {
+				healthPotion.getRenderStates().disableRendering();
+			}
+		}
+
+		updateFlashlightSpotlight();
+	}
+
+	public void equipFlashlight() {
+		if (!hasFlashlight) {
+			showEvent("NO FLASHLIGHT", 0.8);
+			return;
+		}
+
+		equippedItem = ITEM_FLASHLIGHT;
+		updateEquippedItemVisibility();
+		showEvent("FLASHLIGHT EQUIPPED", 0.8);
+	}
+
+	public void equipPotion() {
+		if (!hasPotion || potionUsed) {
+			showEvent("NO POTION", 0.8);
+			return;
+		}
+
+		equippedItem = ITEM_POTION;
+		updateEquippedItemVisibility();
+		showEvent("POTION EQUIPPED", 0.8);
+	}
+
+	public void unequipItem() {
+		if (equippedItem == ITEM_NONE) {
+			showEvent("NO ITEM EQUIPPED", 0.8);
+			return;
+		}
+
+		equippedItem = ITEM_NONE;
+		updateEquippedItemVisibility();
+		showEvent("ITEM UNEQUIPPED", 0.8);
+	}
+
+	private void tryPickupFlashlight() {
+		if (flashlight == null || hasFlashlight)
+			return;
+
+		float dist = boy.getWorldLocation().distance(flashlight.getWorldLocation());
+		if (dist > itemPickupRange)
+			return;
+
+		hasFlashlight = true;
+		updateCarriedFlashlightPose();
+		if (equippedItem == ITEM_NONE)
+			equippedItem = ITEM_FLASHLIGHT;
+		updateEquippedItemVisibility();
+
+		showEvent("FLASHLIGHT PICKED UP", 1.0);
+	}
+
+	private void tryPickupPotion() {
+		if (healthPotion == null || hasPotion || potionUsed)
+			return;
+
+		float dist = boy.getWorldLocation().distance(healthPotion.getWorldLocation());
+		if (dist > itemPickupRange)
+			return;
+
+		hasPotion = true;
+
+		updateCarriedPotionPose();
+		healthPotion.getRenderStates().isTransparent(false);
+		healthPotion.getRenderStates().setOpacity(1.0f);
+		if (equippedItem == ITEM_NONE)
+			equippedItem = ITEM_POTION;
+		updateEquippedItemVisibility();
+
+		showEvent("POTION PICKED UP  PRESS H TO HEAL", 1.2);
+	}
+
+	private void checkItemPickups() {
+		tryPickupFlashlight();
+		tryPickupPotion();
+	}
+
+	public void usePotion() {
+		if (!hasPotion) {
+			showEvent("NO POTION", 0.8);
+			return;
+		}
+
+		if (health >= maxHealth) {
+			showEvent("HEALTH FULL", 0.8);
+			return;
+		}
+
+		healPlayer(potionHealAmount);
+
+		hasPotion = false;
+		potionUsed = true;
+		if (equippedItem == ITEM_POTION) {
+			if (hasFlashlight)
+				equippedItem = ITEM_FLASHLIGHT;
+			else
+				equippedItem = ITEM_NONE;
+		}
+
+		healthPotion.getRenderStates().disableRendering();
+		updateEquippedItemVisibility();
+
+		showEvent("HEALTH RESTORED +" + potionHealAmount, 1.2);
 	}
 
 	public void useSky04() {
@@ -1445,30 +2316,20 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	}
 
 	private int overHudLeftPx() {
-		return Math.round(OVER_LEFT * winW());
+		return java.lang.Math.round(OVER_LEFT * winW());
 	}
 
 	// HUD top position is derived from viewport placement so the text stays inside
 	// the overhead viewport.
 	private int overHudTopPx() {
-		return Math.round((1.0f - (OVER_BOTTOM + OVER_H)) * winH());
+		return java.lang.Math.round((1.0f - (OVER_BOTTOM + OVER_H)) * winH());
 	}
 
 	// Mouse-look initialization sets up Robot recentering, stores the center of
 	// the main viewport, registers the canvas listener, and hides the cursor.
 	private void initMouseMode() {
 		mouseModeInitiated = true;
-
 		RenderSystem rs = engine.getRenderSystem();
-		Viewport vw = rs.getViewport("MAIN");
-
-		float left = vw.getActualLeft();
-		float bottom = vw.getActualBottom();
-		float width = vw.getActualWidth();
-		float height = vw.getActualHeight();
-
-		centerX = (int) (left + width / 2.0f);
-		centerY = (int) (bottom - height / 2.0f);
 
 		isRecentering = false;
 
@@ -1486,12 +2347,13 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		invisibleCursor = tk.createCustomCursor(tk.getImage(""), new Point(), "InvisibleCursor");
 		canvas.setCursor(invisibleCursor);
 
+		updateMouseCenterOnScreen();
 		recenterMouse();
 
 		prevMouseX = centerX;
 		prevMouseY = centerY;
 
-		canvas.requestFocus();
+		canvas.requestFocusInWindow();
 	}
 
 	// Robot places the mouse back in the center after each move, which prevents
@@ -1500,19 +2362,18 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		if (!mouseLookEnabled)
 			return;
 
-		RenderSystem rs = engine.getRenderSystem();
-		Viewport vw = rs.getViewport("MAIN");
-
-		float left = vw.getActualLeft();
-		float bottom = vw.getActualBottom();
-		float width = vw.getActualWidth();
-		float height = vw.getActualHeight();
-
-		centerX = (int) (left + width / 2.0f);
-		centerY = (int) (bottom - height / 2.0f);
-
+		updateMouseCenterOnScreen();
 		isRecentering = true;
 		robot.mouseMove((int) centerX, (int) centerY);
+	}
+
+	private void updateMouseCenterOnScreen() {
+		if (canvas == null)
+			return;
+
+		Point canvasLoc = canvas.getLocationOnScreen();
+		centerX = canvasLoc.x + canvas.getWidth() / 2.0f;
+		centerY = canvasLoc.y + canvas.getHeight() / 2.0f;
 	}
 
 	public void toggleMouseLook() {
@@ -1526,7 +2387,7 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			recenterMouse();
 			prevMouseX = centerX;
 			prevMouseY = centerY;
-			canvas.requestFocus();
+			canvas.requestFocusInWindow();
 			showEvent("MOUSE LOCKED", 1.0);
 		} else {
 			isRecentering = false;
@@ -1549,13 +2410,25 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 		// Ground-based character turning should use global yaw.
 		boy.globalYaw(yawAmt);
 
-		if (orbitCam != null)
+		// Keep the tracked yaw value in sync so remote clients receive the same
+		// heading.
+		playerYaw += (float) java.lang.Math.toDegrees(yawAmt);
+
+		if (orbitCam != null) {
 			orbitCam.update();
+			applyCameraModeOffset();
+		}
+
+		sendPlayerTransform();
 	}
 
 	// Vertical mouse motion adjusts orbit camera elevation, which is the natural
 	// pitch control for a targeted third-person camera.
+	// First-person keeps the same mouse look feel through the orbit camera.
 	private void pitchMouse(float mouseDeltaY) {
+		if (isLost() || isWon())
+			return;
+
 		if (orbitCam == null)
 			return;
 
@@ -1563,8 +2436,16 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 			return;
 
 		float elevAmt = -mouseDeltaY * mouseElevSpeed;
-		orbitCam.elevate(elevAmt);
+		orbitElevationDeg += elevAmt;
+
+		if (orbitElevationDeg < minOrbitElevationDeg)
+			orbitElevationDeg = minOrbitElevationDeg;
+		if (orbitElevationDeg > maxOrbitElevationDeg)
+			orbitElevationDeg = maxOrbitElevationDeg;
+
+		orbitCam.setElevationDeg(orbitElevationDeg);
 		orbitCam.update();
+		applyCameraModeOffset();
 	}
 
 	@Override
@@ -1606,5 +2487,224 @@ public class MyGame extends VariableFrameRateGame implements MouseMotionListener
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		mouseMoved(e);
+	}
+
+	public ObjShape getGhostShape(String avatarType) {
+		if (avatarType.compareTo("player") == 0)
+			return playerS;
+
+		return boyS;
+	}
+
+	public TextureImage getGhostTexture(String avatarType) {
+		if (avatarType.compareTo("player") == 0)
+			return playerAvatarTx;
+
+		return boyTx;
+	}
+
+	public Matrix4f getGhostScale(String avatarType) {
+		if (avatarType.compareTo("player") == 0)
+			return (new Matrix4f()).scaling(0.25f);
+
+		return (new Matrix4f()).scaling(1.0f);
+	}
+
+	public void applyGhostModelCorrection(GhostAvatar ghost, String avatarType) {
+		if (avatarType.compareTo("boy") == 0) {
+			ghost.getRenderStates().setModelOrientationCorrection(
+					(new Matrix4f()).identity());
+		}
+
+		if (avatarType.compareTo("player") == 0) {
+			ghost.getRenderStates().setModelOrientationCorrection(
+					(new Matrix4f()).identity());
+		}
+	}
+
+	public GhostManager getGhostManager() {
+		if (gm == null)
+			gm = new GhostManager(this);
+		return gm;
+	}
+
+	public String getSelectedAvatarType() {
+		return selectedAvatar;
+	}
+
+	public void setSelectedAvatarType(String type) {
+		if (type == null)
+			return;
+
+		type = type.toLowerCase();
+
+		// Start simple: support two avatar names.
+		if (type.compareTo("boy") == 0 || type.compareTo("player") == 0)
+			selectedAvatar = type;
+	}
+
+	private float getAvatarScale() {
+		if (selectedAvatar.compareTo("player") == 0)
+			return 0.25f;
+
+		return 1.0f;
+	}
+
+	private Matrix4f getCollectedHudIconScale() {
+		float s = 1.0f / getAvatarScale();
+		return (new Matrix4f()).scaling(0.30f * s, 0.21f * s, 1f);
+	}
+
+	private void setupNetworking() {
+		isClientConnected = false;
+		try {
+			protClient = new ProtocolClient(InetAddress.getByName(serverAddress), serverPort, serverProtocol, this);
+		} catch (UnknownHostException e) {
+			e.printStackTrace();
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+		if (protClient == null) {
+			System.out.println("missing protocol host");
+		} else { // Send the initial join message with a unique identifier for this client
+			System.out.println("sending join message to protocol host");
+			protClient.sendJoinMessage();
+		}
+	}
+
+	private void sendPlayerTransform() {
+		if (protClient != null && isClientConnected)
+			protClient.sendMoveMessage(boy.getWorldLocation(), playerYaw);
+	}
+
+	// Sends a BYE message once before the client closes so other players can
+	// remove this ghost from their worlds.
+	private void sendByeAndClose() {
+		if (byeMessageSent)
+			return;
+
+		byeMessageSent = true;
+
+		if (protClient != null && isClientConnected) {
+			System.out.println("sending bye message to protocol host");
+			protClient.sendByeMessage();
+		}
+	}
+
+	protected void processNetworking(float elapsTime) { // Process packets received by the client from the server
+		if (protClient != null)
+			protClient.processPackets();
+	}
+
+	public Vector3f getPlayerPosition() {
+		return boy.getWorldLocation();
+	}
+
+	public void setIsConnected(boolean value) {
+		this.isClientConnected = value;
+	}
+
+	private class RunAction extends AbstractInputAction {
+		private MyGame game;
+
+		public RunAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.triggerRun();
+		}
+	}
+
+	private class ToggleCameraModeAction extends AbstractInputAction {
+		private MyGame game;
+
+		public ToggleCameraModeAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.toggleCameraMode();
+		}
+	}
+
+	private class SwapShoulderAction extends AbstractInputAction {
+		private MyGame game;
+
+		public SwapShoulderAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.swapShoulderCamera();
+		}
+	}
+
+	private class ToggleFullMapAction extends AbstractInputAction {
+		private MyGame game;
+
+		public ToggleFullMapAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.toggleFullMap();
+		}
+	}
+
+	private class UsePotionAction extends AbstractInputAction {
+		private MyGame game;
+
+		public UsePotionAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.usePotion();
+		}
+	}
+
+	private class EquipFlashlightAction extends AbstractInputAction {
+		private MyGame game;
+
+		public EquipFlashlightAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.equipFlashlight();
+		}
+	}
+
+	private class EquipPotionAction extends AbstractInputAction {
+		private MyGame game;
+
+		public EquipPotionAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.equipPotion();
+		}
+	}
+
+	private class UnequipItemAction extends AbstractInputAction {
+		private MyGame game;
+
+		public UnequipItemAction(MyGame g) {
+			game = g;
+		}
+
+		@Override
+		public void performAction(float time, net.java.games.input.Event evt) {
+			game.unequipItem();
+		}
 	}
 }

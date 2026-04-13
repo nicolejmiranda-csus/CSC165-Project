@@ -3,9 +3,9 @@
         "."
     ],
     "java.project.referencedLibraries": [
-        "c:\\javagaming\\libbulletjme\\Libbulletjme-21.2.1.jar",
-        "c:\\javagaming\\joml\\joml-1.10.7.jar",
-        "c:\\javagaming\\jogl\\jogamp-fat.jar",
-        "c:\\javagaming\\jinput\\jinput-2.0.10.jar"
+        "C:\\javagaming\\libbulletjme\\Libbulletjme-21.2.1.jar",
+        "C:\\javagaming\\joml\\joml-1.10.7.jar",
+        "C:\\javagaming\\jogl\\jogamp-fat.jar",
+        "C:\\javagaming\\jinput\\jinput-2.0.10.jar"
     ]
 }
