@@ -27,6 +27,9 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 												// objects
 	private ObjectInputStream objInputStream; // input stream used to receive
 												// objects
+	private final Object streamInitLock = new Object();
+	private final Object sendLock = new Object();
+	private final Object receiveLock = new Object();
 
 	/**
 	 * Constructor to create an unconnected client socket. The socket should be
@@ -52,6 +55,7 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 	public TCPClientSocket(InetAddress remoteAddr, int remotePort)
 			throws IOException {
 		super(remoteAddr, remotePort);
+		initStreams();
 	}
 
 	/**
@@ -73,6 +77,7 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 	public TCPClientSocket(InetAddress remoteAddr, int remotePort,
 			InetAddress localAddr, int localPort) throws IOException {
 		super(remoteAddr, remotePort, localAddr, localPort);
+		initStreams();
 	}
 
 	/**
@@ -91,6 +96,7 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 	public TCPClientSocket(String remoteAddr, int remotePort)
 			throws IOException {
 		super(remoteAddr, remotePort);
+		initStreams();
 	}
 
 	/**
@@ -114,6 +120,19 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 	public TCPClientSocket(String remoteAddr, int remotePort,
 			InetAddress localAddr, int localPort) throws IOException {
 		super(remoteAddr, remotePort, localAddr, localPort);
+		initStreams();
+	}
+
+	private void initStreams() throws IOException {
+		synchronized (streamInitLock) {
+			if (objOutputStream == null) {
+				objOutputStream = new ObjectOutputStream(getOutputStream());
+				objOutputStream.flush();
+			}
+			if (objInputStream == null) {
+				objInputStream = new ObjectInputStream(getInputStream());
+			}
+		}
 	}
 
 	/**
@@ -127,18 +146,25 @@ public class TCPClientSocket extends Socket implements IClientSocket {
 	public void connectTo(InetAddress remoteAddress, int remotePort)
 			throws IOException {
 		this.connect(new InetSocketAddress(remoteAddress, remotePort));
+		initStreams();
 	}
 
 	@Override
 	public void send(Serializable object) throws IOException {
-		objOutputStream = new ObjectOutputStream(this.getOutputStream());
-		objOutputStream.writeObject(object);
+		initStreams();
+		synchronized (sendLock) {
+			objOutputStream.writeObject(object);
+			objOutputStream.flush();
+			objOutputStream.reset();
+		}
 	}
 
 	@Override
 	public Object receive() throws IOException, ClassNotFoundException {
-		objInputStream = new ObjectInputStream(this.getInputStream());
-		return objInputStream.readObject();
+		initStreams();
+		synchronized (receiveLock) {
+			return objInputStream.readObject();
+		}
 	}
 
 	@Override

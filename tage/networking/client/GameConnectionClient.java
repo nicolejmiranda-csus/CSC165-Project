@@ -4,8 +4,9 @@ import java.io.EOFException;
 import java.io.IOException;
 import java.io.Serializable;
 import java.net.InetAddress;
-import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Queue;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Concrete implementation of the client side for a game connection protocol.
@@ -23,8 +24,8 @@ import java.util.Collection;
  */
 public class GameConnectionClient extends AbstractGameConnectionClient {
 	private IClientSocket clientSocket;
-	private Collection<Object> packetsToProcess;
-	private Collection<Object> packetsReceived;
+	private Queue<Object> packetsToProcess;
+	private Queue<Object> packetsReceived;
 	private volatile boolean running;
 	private Thread receivePackets;
 
@@ -126,8 +127,8 @@ public class GameConnectionClient extends AbstractGameConnectionClient {
 	 */
 	@Override
 	protected void initClient() {
-		packetsToProcess = new ArrayList<Object>();
-		packetsReceived = new ArrayList<Object>();
+		packetsToProcess = new ConcurrentLinkedQueue<Object>();
+		packetsReceived = new ConcurrentLinkedQueue<Object>();
 		startClient();
 	}
 
@@ -158,16 +159,14 @@ public class GameConnectionClient extends AbstractGameConnectionClient {
 	 */
 	@Override
 	public void processPackets() {
-		synchronized (packetsReceived) {
-			packetsToProcess.addAll(packetsReceived);
-			packetsReceived.clear();
+		Object packet;
+		while ((packet = packetsReceived.poll()) != null) {
+			packetsToProcess.offer(packet);
 		}
 
-		for (Object packet : packetsToProcess) {
+		while ((packet = packetsToProcess.poll()) != null) {
 			processPacket(packet);
 		}
-
-		packetsToProcess.clear();
 	}
 
 	/**
@@ -221,7 +220,7 @@ public class GameConnectionClient extends AbstractGameConnectionClient {
 			public void run() {
 				while (running) {
 					try {
-						packetsReceived.add(clientSocket.receive());
+						packetsReceived.offer(clientSocket.receive());
 					} catch (IOException | ClassNotFoundException e) {
 						if (e instanceof EOFException
 								|| clientSocket.isClosed()) {
@@ -298,7 +297,7 @@ public class GameConnectionClient extends AbstractGameConnectionClient {
 	 * @param packetsToProcess
 	 */
 	protected void setPacketsToProcess(Collection<Object> packetsToProcess) {
-		this.packetsToProcess = packetsToProcess;
+		this.packetsToProcess = new ConcurrentLinkedQueue<Object>(packetsToProcess);
 	}
 
 	/**
@@ -309,8 +308,6 @@ public class GameConnectionClient extends AbstractGameConnectionClient {
 	 * @param packetsReceived
 	 */
 	protected void setPacketsReceived(Collection<Object> packetsReceived) {
-		synchronized (this.packetsReceived) {
-			this.packetsReceived = packetsReceived;
-		}
+		this.packetsReceived = new ConcurrentLinkedQueue<Object>(packetsReceived);
 	}
 }
