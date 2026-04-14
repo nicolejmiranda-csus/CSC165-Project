@@ -171,9 +171,17 @@ public class MyGame extends VariableFrameRateGame {
 	// Extra A2 objects
 	private GameObject terrain, flashlight, player, table, healthPotion;
 	private final TextureImage[] pyramidTx = new TextureImage[3];
+	private TextureImage heightMaptx; 
+	private TextureImage flashlightTx;
+	private TextureImage playerModelTx;
+	private TextureImage tableTx;
 
 	private GameObject dol;
 	private final GameObject[] pyramids = new GameObject[3];
+	private GameObject terrain;
+	private GameObject flashlight;
+	private GameObject player;
+	private GameObject table;
 
 	private final Light[] lightPyramid = new Light[3];
 
