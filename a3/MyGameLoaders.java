@@ -13,7 +13,6 @@ public class MyGameLoaders {
 
     public void loadShapes() {
         MyGameAssets a = game.assets;
-        a.dolS = new ImportedModel("dolphinHighPoly.obj");
         a.playerModel1S = new ImportedModel("boy_character_textured.obj");
         a.playerModel2S = new ImportedModel("playerModel.obj");
         a.flashlightS = new ImportedModel("flashlight.obj");
@@ -29,7 +28,6 @@ public class MyGameLoaders {
 
     public void loadTextures() {
         MyGameAssets a = game.assets;
-        a.dolTx = new TextureImage("Dolphin_HighPolyUV.jpg");
         a.playerModel1Tx = new TextureImage("boy_textured.png");
         a.playerModel2Tx = new TextureImage("playerModel.png");
         a.pyramidTx[0] = new TextureImage("3d-geometric-texture-copper_512x512.jpg");

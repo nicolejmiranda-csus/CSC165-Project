@@ -108,5 +108,5 @@ public class MyGameState {
     float playerYaw = 180.0f;
     boolean byeMessageSent = false;
     boolean isMultiplayer = false;
-    String selectedAvatar = "playerModel1";
+    String selectedAvatarType = "playerModel1";
 }

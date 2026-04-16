@@ -171,7 +171,7 @@ public class MyGameItemSystem {
         tryPickupPotion();
     }
 
-    private boolean isPlayerModel2() { return "playerModel2".equals(game.state.selectedAvatar); }
+    private boolean isPlayerModel2() { return game.isPlayerModel2Selected(); }
     private float getFlashlightCarryScale() { return isPlayerModel2() ? 0.14f : 0.18f; }
     private float getFlashlightCarrySideOffset() { return isPlayerModel2() ? -1.18f : -0.95f; }
     private float getFlashlightCarryForwardOffset() { return isPlayerModel2() ? 0.08f : 0.10f; }

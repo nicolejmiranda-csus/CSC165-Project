@@ -63,7 +63,7 @@ public class MyGameCameraSystem {
     }
 
     public void updateCameraLimits() {
-        if (game.state.selectedAvatar.compareTo("playerModel2") == 0) {
+        if (game.isPlayerModel2Selected()) {
             game.state.minOrbitElevationDeg = -10.0f;
             game.state.maxOrbitElevationDeg = 76.0f;
         } else {
@@ -138,7 +138,7 @@ public class MyGameCameraSystem {
             return;
         }
         if (game.state.cameraMode == 3) {
-            Vector3f playerLoc = game.assets.avatar.getWorldLocation();
+            Vector3f avatarLoc = game.assets.avatar.getWorldLocation();
             Vector3f forward = new Vector3f(game.photoSystem.avatarForward()).normalize();
             float pitchDeg = 15.0f - game.state.orbitElevationDeg;
             float pitchRad = (float) Math.toRadians(pitchDeg);
@@ -147,7 +147,7 @@ public class MyGameCameraSystem {
             forward.z *= horiz;
             forward.y = (float) Math.sin(pitchRad);
             forward.normalize();
-            Vector3f newLoc = new Vector3f(playerLoc).add(0f, getFirstPersonEyeHeight(), 0f).add(new Vector3f(forward).mul(getFirstPersonForwardOffset()));
+            Vector3f newLoc = new Vector3f(avatarLoc).add(0f, getFirstPersonEyeHeight(), 0f).add(new Vector3f(forward).mul(getFirstPersonForwardOffset()));
             Vector3f worldUp = new Vector3f(0f, 1f, 0f);
             Vector3f u = new Vector3f(forward).cross(worldUp).normalize();
             Vector3f v = new Vector3f(u).cross(forward).normalize();
@@ -158,6 +158,6 @@ public class MyGameCameraSystem {
         }
     }
 
-    public float getFirstPersonEyeHeight() { return game.state.selectedAvatar.compareTo("playerModel2") == 0 ? 1.65f : 1.80f; }
-    public float getFirstPersonForwardOffset() { return game.state.selectedAvatar.compareTo("playerModel2") == 0 ? 0.32f : 0.35f; }
+    public float getFirstPersonEyeHeight() { return game.isPlayerModel2Selected() ? 1.65f : 1.80f; }
+    public float getFirstPersonForwardOffset() { return game.isPlayerModel2Selected() ? 0.32f : 0.35f; }
 }

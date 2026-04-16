@@ -15,7 +15,6 @@ public class MyGameWorldBuilder {
         buildLocalAvatar();
         buildInteractiveProps();
         buildPyramids();
-        buildWorldDecor();
         buildTerrain();
         buildHealthPotion();
         buildAxes();
@@ -27,8 +26,8 @@ public class MyGameWorldBuilder {
     private void buildLocalAvatar() {
         MyGameAssets a = game.assets;
         MyGameState s = game.state;
-        ObjShape avatarShape = s.selectedAvatar.compareTo("playerModel2") == 0 ? a.playerModel2S : a.playerModel1S;
-        TextureImage avatarTexture = s.selectedAvatar.compareTo("playerModel2") == 0 ? a.playerModel2Tx : a.playerModel1Tx;
+        ObjShape avatarShape = game.isPlayerModel2Selected() ? a.playerModel2S : a.playerModel1S;
+        TextureImage avatarTexture = game.isPlayerModel2Selected() ? a.playerModel2Tx : a.playerModel1Tx;
         a.avatar = new GameObject(GameObject.root(), avatarShape, avatarTexture);
         a.avatar.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
         a.avatar.setLocalScale((new Matrix4f()).scaling(1.0f));
@@ -59,15 +58,6 @@ public class MyGameWorldBuilder {
         a.pyramids[0].setLocalTranslation((new Matrix4f()).translation(-24f, 0f, -10f));
         a.pyramids[1].setLocalTranslation((new Matrix4f()).translation(34f, 0f, 0f));
         a.pyramids[2].setLocalTranslation((new Matrix4f()).translation(18f, 0f, 10f));
-    }
-
-    private void buildWorldDecor() {
-        MyGameAssets a = game.assets;
-        a.dol = new GameObject(GameObject.root(), a.dolS, a.dolTx);
-        a.dol.setLocalTranslation((new Matrix4f()).translation(-8f, 0f, -12f));
-        a.dol.setLocalScale((new Matrix4f()).scaling(1.0f));
-        a.dol.setLocalRotation((new Matrix4f()).rotationY((float) Math.toRadians(45f)));
-        a.dol.getRenderStates().hasLighting(true);
     }
 
     private void buildTerrain() {

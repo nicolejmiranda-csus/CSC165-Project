@@ -332,12 +332,16 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public String getSelectedAvatarType() {
-		return state.selectedAvatar;
+		return state.selectedAvatarType;
 	}
 
 	public void setSelectedAvatarType(String type) {
 		if (type != null)
-			state.selectedAvatar = type;
+			state.selectedAvatarType = type;
+	}
+
+	boolean isPlayerModel2Selected() {
+		return "playerModel2".equals(state.selectedAvatarType);
 	}
 
 	public Matrix4f getCollectedHudIconScale() {
@@ -345,11 +349,11 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public ObjShape getGhostShape(String avatarType) {
-		return avatarType.compareTo("playerModel2") == 0 ? assets.playerModel2S : assets.playerModel1S;
+		return "playerModel2".equals(avatarType) ? assets.playerModel2S : assets.playerModel1S;
 	}
 
 	public TextureImage getGhostTexture(String avatarType) {
-		return avatarType.compareTo("playerModel2") == 0 ? assets.playerModel2Tx : assets.playerModel1Tx;
+		return "playerModel2".equals(avatarType) ? assets.playerModel2Tx : assets.playerModel1Tx;
 	}
 
 	public Matrix4f getGhostScale(String avatarType) {

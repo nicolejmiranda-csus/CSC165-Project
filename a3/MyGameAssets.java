@@ -10,20 +10,19 @@ import tage.shapes.TerrainPlane;
 
 public class MyGameAssets {
     // Shapes
-    ObjShape dolS, quadS, linxS, linyS, linzS;
+    ObjShape quadS, linxS, linyS, linzS;
     ObjShape pyrS;
     TerrainPlane terrainShape;
     ObjShape playerModel1S, playerModel2S, flashlightS, tableS, healthPotionS;
 
     // Textures
     TextureImage playerModel1Tx, playerModel2Tx, healthPotionTx;
-    TextureImage grassTx, dolTx, homeTx, heightMaptx, flashlightTx, tableTx;
+    TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx;
     final TextureImage[] pyramidTx = new TextureImage[3];
 
     // Scene objects
     GameObject avatar;
     GameObject healthPotion;
-    GameObject dol;
     final GameObject[] pyramids = new GameObject[3];
     GameObject terrain;
     GameObject flashlight;
