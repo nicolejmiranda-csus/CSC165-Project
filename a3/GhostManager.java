@@ -30,11 +30,7 @@ public class GhostManager {
 		GhostAvatar newAvatar = new GhostAvatar(id, avatarType, s, t, position);
 		Matrix4f initialScale = game.getGhostScale(avatarType);
 		newAvatar.setLocalScale(initialScale);
-
 		newAvatar.setYaw(yaw);
-
-		// Apply the same imported-model upright correction used by the local avatar.
-		game.applyGhostModelCorrection(newAvatar, avatarType);
 
 		ghostAvatars.add(newAvatar);
 	}
