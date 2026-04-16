@@ -176,7 +176,6 @@ public class MyGame extends VariableFrameRateGame {
 	private final GameObject[] pyramids = new GameObject[3];
 	private GameObject terrain;
 	private GameObject flashlight;
-	private GameObject player;
 	private GameObject table;
 
 	private final Light[] lightPyramid = new Light[3];
@@ -455,11 +454,6 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private void buildInteractiveProps() {
-		player = new GameObject(GameObject.root(), playerS, playerModelTx);
-		player.setLocalTranslation((new Matrix4f()).translation(5f, 0f, 6f));
-		player.setLocalScale((new Matrix4f()).scaling(0.25f));
-		player.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
-
 		flashlight = new GameObject(GameObject.root(), flashlightS, flashlightTx);
 		flashlight.setLocalTranslation((new Matrix4f()).translation(0f, 0.5f, 6f));
 		flashlight.setLocalScale((new Matrix4f()).scaling(0.18f));
@@ -892,9 +886,6 @@ public class MyGame extends VariableFrameRateGame {
 		return table;
 	}
 
-	public GameObject getPlayer() {
-		return player;
-	}
 
 	@Override
 	public void update() {
