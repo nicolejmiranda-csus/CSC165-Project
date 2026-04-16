@@ -150,14 +150,16 @@ public class MyGame extends VariableFrameRateGame {
 	private ObjShape dolS, quadS, linxS, linyS, linzS;
 	private ObjShape pyrS;
 	private TerrainPlane terrainShape;
-	private ObjShape playerS, flashlightS, tableS, healthPotionS;
+	private ObjShape playerModel2S, flashlightS, tableS, healthPotionS;
 
-	// Player character
-	private ObjShape boyS;
-	private TextureImage boyTx;
-	private TextureImage playerAvatarTx;
+	// Player Models
+	private ObjShape playerModel1S;
+	private TextureImage playerModel1Tx;
+	private TextureImage playerModel2Tx;
 	private TextureImage healthPotionTx;
-	private GameObject boy;
+
+	// Player Avatar
+	private GameObject avatar;
 
 	// Extra A2 textures
 	private TextureImage grassTx;
@@ -169,7 +171,6 @@ public class MyGame extends VariableFrameRateGame {
 	private final TextureImage[] pyramidTx = new TextureImage[3];
 	private TextureImage heightMaptx; 
 	private TextureImage flashlightTx;
-	private TextureImage playerModelTx;
 	private TextureImage tableTx;
 
 	private GameObject dol;
@@ -281,7 +282,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	// Avatar selection at startup is sent to remote clients so their ghost uses
 	// the proper model and texture.
-	private String selectedAvatar = "boy";
+	private String selectedAvatar = "playerModel1";
 
 	public MyGame() {
 		super();
@@ -309,7 +310,7 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private static String chooseAvatarPopup() {
-		Object[] options = { "boy", "player" };
+		Object[] options = { "playerModel1", "playerModel2" };
 
 		Object choice = JOptionPane.showInputDialog(
 				null,
@@ -321,7 +322,7 @@ public class MyGame extends VariableFrameRateGame {
 				options[0]);
 
 		if (choice == null)
-			return "boy";
+			return "playerModel1";
 
 		return choice.toString();
 	}
@@ -369,8 +370,8 @@ public class MyGame extends VariableFrameRateGame {
 		dolS = new ImportedModel("dolphinHighPoly.obj");
 
 		// Player character models
-		boyS = new ImportedModel("boy_character_textured.obj");
-		playerS = new ImportedModel("playerModel.obj");
+		playerModel1S = new ImportedModel("boy_character_textured.obj");
+		playerModel2S = new ImportedModel("playerModel.obj");
 
 		// Custom models
 		flashlightS = new ImportedModel("flashlight.obj");
@@ -391,9 +392,8 @@ public class MyGame extends VariableFrameRateGame {
 		dolTx = new TextureImage("Dolphin_HighPolyUV.jpg");
 
 		// Player character texture
-		boyTx = new TextureImage("boy_textured.png");
-		playerAvatarTx = new TextureImage("playerModel.png");
-		playerModelTx = new TextureImage("playerModel.png");
+		playerModel1Tx = new TextureImage("boy_textured.png");
+		playerModel2Tx = new TextureImage("playerModel.png");
 
 		// A2 pyramid textures: each pyramid uses a different texture.
 		pyramidTx[0] = new TextureImage("3d-geometric-texture-copper_512x512.jpg");
@@ -433,23 +433,22 @@ public class MyGame extends VariableFrameRateGame {
 		buildHealthPotion();
 		buildAxes();
 		buildHome();
-		buildHudIcons();
+		buildHudIcons(); 
 		buildBuildPreview();
 	}
 
 	private void buildLocalAvatar() {
-		ObjShape avatarShape = (selectedAvatar.compareTo("player") == 0) ? playerS : boyS;
-		TextureImage avatarTexture = (selectedAvatar.compareTo("player") == 0) ? playerAvatarTx : boyTx;
+		ObjShape avatarShape = (selectedAvatar.compareTo("playerModel2") == 0) ? playerModel2S : playerModel1S;
+		TextureImage avatarTexture = (selectedAvatar.compareTo("playerModel2") == 0) ? playerModel2Tx : playerModel1Tx;
 
 		if (avatarShape == null)
 			throw new RuntimeException("avatarShape is null for selectedAvatar = " + selectedAvatar);
-
-		boy = new GameObject(GameObject.root(), avatarShape, avatarTexture);
-		boy.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
-		boy.setLocalScale((new Matrix4f()).scaling(getAvatarScale()));
-		boy.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
-		boy.getRenderStates().hasLighting(true);
-		boy.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
+		avatar = new GameObject(GameObject.root(), avatarShape, avatarTexture);
+		avatar.setLocalTranslation((new Matrix4f()).translation(0f, 0f, 6f));
+		avatar.setLocalScale((new Matrix4f()).scaling(1.0f));
+		avatar.setLocalRotation((new Matrix4f()).rotationY((float) java.lang.Math.toRadians(180f)));
+		avatar.getRenderStates().hasLighting(true);
+		avatar.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
 		playerYaw = 180.0f;
 	}
 
@@ -595,7 +594,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	private void buildHudIcons() {
 		for (int i = 0; i < 3; i++) {
-			hudIcons[i] = new GameObject(boy, quadS, pyramidTx[i]);
+			hudIcons[i] = new GameObject(avatar, quadS, pyramidTx[i]);
 			hudIcons[i].getRenderStates().hasLighting(false);
 			hudIcons[i].setLocalScale((new Matrix4f()).scaling(0f));
 
@@ -666,7 +665,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	private void setupCameras() {
 		Camera mainCam = engine.getRenderSystem().getViewport("MAIN").getCamera();
-		orbitCam = new CameraOrbit3D(mainCam, boy);
+		orbitCam = new CameraOrbit3D(mainCam, avatar);
 		orbitCam.setRadius(orbitRadius);
 		orbitCam.setElevationDeg(orbitElevationDeg);
 		orbitCam.setAzimuthDeg(orbitAzimuthDeg);
@@ -870,20 +869,8 @@ public class MyGame extends VariableFrameRateGame {
 		}
 	}
 
-	public GameObject getBoy() {
-		return boy;
-	}
-
 	public float getPlayerYaw() {
 		return playerYaw;
-	}
-
-	public GameObject getFlashlight() {
-		return flashlight;
-	}
-
-	public GameObject getTable() {
-		return table;
 	}
 
 
@@ -937,12 +924,12 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private void syncPlayerToTerrain() {
-		Vector3f loc = boy.getWorldLocation();
+		Vector3f loc = avatar.getWorldLocation();
 		float groundY = getGroundHeight(loc.x(), loc.z());
 
 		if (onGround) {
 			boolean yChanged = java.lang.Math.abs(loc.y - groundY) > 0.001f;
-			boy.setLocalLocation(new Vector3f(loc.x(), groundY, loc.z()));
+			avatar.setLocalLocation(new Vector3f(loc.x(), groundY, loc.z()));
 
 			if (yChanged)
 				sendPlayerTransform();
@@ -953,7 +940,7 @@ public class MyGame extends VariableFrameRateGame {
 		Camera mainCam = engine.getRenderSystem().getViewport("MAIN").getCamera();
 
 		if (fullMapMode) {
-			Vector3f p = boy.getWorldLocation();
+			Vector3f p = avatar.getWorldLocation();
 
 			mainCam.setLocation(new Vector3f(p.x, 60f, p.z));
 			mainCam.setN(new Vector3f(0f, -1f, 0f));
@@ -984,12 +971,12 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private void updateCameraLimits() {
-		if (selectedAvatar.compareTo("player") == 0) {
+		if (selectedAvatar.compareTo("playerModel2") == 0) {
 			// restrict downward look more to avoid clipping into head
 			minOrbitElevationDeg = -10.0f;
 			maxOrbitElevationDeg = 76.0f;
 		} else {
-			// boy can look more freely
+			// avatar can look more freely
 			minOrbitElevationDeg = -10.0f;
 			maxOrbitElevationDeg = 80.0f;
 		}
@@ -1032,7 +1019,7 @@ public class MyGame extends VariableFrameRateGame {
 
 		// Overhead viewport HUD shows player world position
 		if (!fullMapMode) {
-			Vector3f p = boy.getWorldLocation();
+			Vector3f p = avatar.getWorldLocation();
 			String pos = String.format("POS (%.1f, %.1f, %.1f)", p.x, p.y, p.z);
 			int x = overHudLeftPx() + 12;
 			int y = overHudTopPx() + 18;
@@ -1094,11 +1081,11 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private Vector3f dolphinForward() {
-		return (new Vector3f(boy.getWorldForwardVector())).normalize();
+		return (new Vector3f(avatar.getWorldForwardVector())).normalize();
 	}
 
 	private float distanceToHome() {
-		return boy.getWorldLocation().distance(new Vector3f(0f, 0f, 0f));
+		return avatar.getWorldLocation().distance(new Vector3f(0f, 0f, 0f));
 	}
 
 	// Collision uses pyramid scale plus a buffer so contact feels fair.
@@ -1117,7 +1104,7 @@ public class MyGame extends VariableFrameRateGame {
 		if (damageCooldown > 0.0)
 			return;
 
-		Vector3f dLoc = boy.getWorldLocation();
+		Vector3f dLoc = avatar.getWorldLocation();
 
 		for (int i = 0; i < 3; i++) {
 			float dist = dLoc.distance(pyramids[i].getWorldLocation());
@@ -1141,7 +1128,7 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private int closestPyramidWithinRange() {
-		Vector3f dLoc = boy.getWorldLocation();
+		Vector3f dLoc = avatar.getWorldLocation();
 		int best = -1;
 		float bestDist = Float.MAX_VALUE;
 
@@ -1623,7 +1610,7 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private Vector3f getBuildPiecePosition() {
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = avatar.getWorldLocation();
 		Vector3f fwd = dolphinForward();
 
 		fwd.y = 0f;
@@ -1736,7 +1723,7 @@ public class MyGame extends VariableFrameRateGame {
 		}
 
 		if (cameraMode == 3) {
-			Vector3f playerLoc = boy.getWorldLocation();
+			Vector3f playerLoc = avatar.getWorldLocation();
 
 			// Use the avatar's forward direction, not the orbit camera's current N.
 			Vector3f forward = new Vector3f(dolphinForward()).normalize();
@@ -1773,13 +1760,13 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	private float getFirstPersonEyeHeight() {
-		if (selectedAvatar.compareTo("player") == 0)
+		if (selectedAvatar.compareTo("playerModel2") == 0)
 			return 1.65f;
 		return 1.80f;
 	}
 
 	private float getFirstPersonForwardOffset() {
-		if (selectedAvatar.compareTo("player") == 0)
+		if (selectedAvatar.compareTo("playerModel2") == 0)
 			return 0.32f;
 		return 0.35f;
 	}
@@ -1890,14 +1877,14 @@ public class MyGame extends VariableFrameRateGame {
 
 		float dist = getCurrentMoveSpeed() * input * time;
 
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = avatar.getWorldLocation();
 		Vector3f fwd = dolphinForward();
 
 		Vector3f newPos = new Vector3f(pos).add(new Vector3f(fwd).mul(dist));
 
 		newPos.y = onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
 
-		boy.setLocalLocation(newPos);
+		avatar.setLocalLocation(newPos);
 
 		sendPlayerTransform();
 	}
@@ -1910,8 +1897,8 @@ public class MyGame extends VariableFrameRateGame {
 
 		float dist = getCurrentMoveSpeed() * dir * time;
 
-		Vector3f pos = boy.getWorldLocation();
-		Vector3f rt = new Vector3f(boy.getWorldRightVector()).normalize();
+		Vector3f pos = avatar.getWorldLocation();
+		Vector3f rt = new Vector3f(avatar.getWorldRightVector()).normalize();
 
 		Vector3f right = new Vector3f(rt.x, 0f, rt.z);
 		if (right.lengthSquared() < 0.0001f)
@@ -1922,7 +1909,7 @@ public class MyGame extends VariableFrameRateGame {
 
 		newPos.y = onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
 
-		boy.setLocalLocation(newPos);
+		avatar.setLocalLocation(newPos);
 
 		sendPlayerTransform();
 	}
@@ -1937,7 +1924,7 @@ public class MyGame extends VariableFrameRateGame {
 		float yawSpeed = 1.6f;
 		float ang = yawSpeed * input * time;
 
-		boy.globalYaw(ang);
+		avatar.globalYaw(ang);
 		playerYaw += (float) java.lang.Math.toDegrees(ang);
 
 		sendPlayerTransform();
@@ -1987,7 +1974,7 @@ public class MyGame extends VariableFrameRateGame {
 		float gravity = -18.0f;
 		yVel += gravity * dt;
 
-		Vector3f pos = boy.getWorldLocation();
+		Vector3f pos = avatar.getWorldLocation();
 		float groundY = getGroundHeight(pos.x, pos.z);
 		float newY = pos.y + yVel * dt;
 
@@ -1997,7 +1984,7 @@ public class MyGame extends VariableFrameRateGame {
 			onGround = true;
 		}
 
-		boy.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
+		avatar.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
 
 		sendPlayerTransform();
 	}
@@ -2036,8 +2023,8 @@ public class MyGame extends VariableFrameRateGame {
 		if (flashlight == null || !hasFlashlight)
 			return;
 
-		if (flashlight.getParent() != boy) {
-			flashlight.setParent(boy);
+		if (flashlight.getParent() != avatar) {
+			flashlight.setParent(avatar);
 			flashlight.propagateRotation(true);
 			flashlight.applyParentRotationToPosition(true);
 			flashlight.propagateScale(false);
@@ -2093,8 +2080,8 @@ public class MyGame extends VariableFrameRateGame {
 		if (healthPotion == null || !hasPotion || potionUsed)
 			return;
 
-		if (healthPotion.getParent() != boy) {
-			healthPotion.setParent(boy);
+		if (healthPotion.getParent() != avatar) {
+			healthPotion.setParent(avatar);
 			healthPotion.propagateRotation(true);
 			healthPotion.applyParentRotationToPosition(true);
 			healthPotion.propagateScale(false);
@@ -2228,7 +2215,7 @@ public class MyGame extends VariableFrameRateGame {
 		if (flashlight == null || hasFlashlight)
 			return;
 
-		float dist = boy.getWorldLocation().distance(flashlight.getWorldLocation());
+		float dist = avatar.getWorldLocation().distance(flashlight.getWorldLocation());
 		if (dist > itemPickupRange)
 			return;
 
@@ -2245,7 +2232,7 @@ public class MyGame extends VariableFrameRateGame {
 		if (healthPotion == null || hasPotion || potionUsed)
 			return;
 
-		float dist = boy.getWorldLocation().distance(healthPotion.getWorldLocation());
+		float dist = avatar.getWorldLocation().distance(healthPotion.getWorldLocation());
 		if (dist > itemPickupRange)
 			return;
 
@@ -2412,7 +2399,7 @@ public class MyGame extends VariableFrameRateGame {
 		}
 	}
 
-	// Horizontal mouse motion rotates the avatar using global yaw so the boy and
+	// Horizontal mouse motion rotates the avatar using global yaw so the avatar and
 	// the targeted orbit camera both follow the mouse direction.
 	private void yawMouse(float mouseDeltaX) {
 		if (isLost() || isWon())
@@ -2424,7 +2411,7 @@ public class MyGame extends VariableFrameRateGame {
 		float yawAmt = mouseDeltaX * mouseYawSpeed;
 
 		// Ground-based character turning should use global yaw.
-		boy.globalYaw(yawAmt);
+		avatar.globalYaw(yawAmt);
 
 		// Keep the tracked yaw value in sync so remote clients receive the same
 		// heading.
@@ -2506,23 +2493,20 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public ObjShape getGhostShape(String avatarType) {
-		if (avatarType.compareTo("player") == 0)
-			return playerS;
+		if (avatarType.compareTo("playerModel2") == 0)
+			return playerModel2S;
 
-		return boyS;
+		return playerModel1S;
 	}
 
 	public TextureImage getGhostTexture(String avatarType) {
-		if (avatarType.compareTo("player") == 0)
-			return playerAvatarTx;
+		if (avatarType.compareTo("playerModel2") == 0)
+			return playerModel2Tx;
 
-		return boyTx;
+		return playerModel1Tx;
 	}
 
 	public Matrix4f getGhostScale(String avatarType) {
-		if (avatarType.compareTo("player") == 0)
-			return (new Matrix4f()).scaling(0.25f);
-
 		return (new Matrix4f()).scaling(1.0f);
 	}
 
@@ -2549,26 +2533,12 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public void setSelectedAvatarType(String type) {
-		if (type == null)
-			return;
-
-		type = type.toLowerCase();
-
-		// Start simple: support two avatar names.
-		if (type.compareTo("boy") == 0 || type.compareTo("player") == 0)
+		if (type != null)
 			selectedAvatar = type;
 	}
 
-	private float getAvatarScale() {
-		if (selectedAvatar.compareTo("player") == 0)
-			return 0.25f;
-
-		return 1.0f;
-	}
-
 	private Matrix4f getCollectedHudIconScale() {
-		float s = 1.0f / getAvatarScale();
-		return (new Matrix4f()).scaling(0.30f * s, 0.21f * s, 1f);
+		return (new Matrix4f()).scaling(0.30f, 0.21f, 1f);
 	}
 
 	private void setupNetworking() {
@@ -2628,7 +2598,7 @@ public class MyGame extends VariableFrameRateGame {
 
 	private void sendPlayerTransform() {
 		if (protClient != null && isClientConnected)
-			protClient.sendMoveMessage(boy.getWorldLocation(), playerYaw);
+			protClient.sendMoveMessage(avatar.getWorldLocation(), playerYaw);
 	}
 
 	// Sends a BYE message once before the client closes so other players can
@@ -2651,7 +2621,7 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public Vector3f getPlayerPosition() {
-		return boy.getWorldLocation();
+		return avatar.getWorldLocation();
 	}
 
 	public void setIsConnected(boolean value) {
