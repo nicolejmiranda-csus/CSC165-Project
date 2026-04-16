@@ -2510,18 +2510,6 @@ public class MyGame extends VariableFrameRateGame {
 		return (new Matrix4f()).scaling(1.0f);
 	}
 
-	public void applyGhostModelCorrection(GhostAvatar ghost, String avatarType) {
-		if (avatarType.compareTo("boy") == 0) {
-			ghost.getRenderStates().setModelOrientationCorrection(
-					(new Matrix4f()).identity());
-		}
-
-		if (avatarType.compareTo("player") == 0) {
-			ghost.getRenderStates().setModelOrientationCorrection(
-					(new Matrix4f()).identity());
-		}
-	}
-
 	public GhostManager getGhostManager() {
 		if (gm == null)
 			gm = new GhostManager(this);
