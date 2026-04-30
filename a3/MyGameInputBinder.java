@@ -44,21 +44,9 @@ public class MyGameInputBinder {
         im.associateActionWithAllKeyboards(Key.SPACE, new JumpAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
-        im.associateActionWithAllKeyboards(Key.H, new UsePotionAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
         im.associateActionWithAllKeyboards(Key.F1, new ToggleHelpAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
-        im.associateActionWithAllKeyboards(Key.RETURN, new PlacePhotosAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-
-        im.associateActionWithAllKeyboards(Key.P, new TakePhotoAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-
-        im.associateActionWithAllKeyboards(Key.Q, new OrbitAction(game, -1f),
-                InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-        im.associateActionWithAllKeyboards(Key.E, new OrbitAction(game, +1f),
-                InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         im.associateActionWithAllKeyboards(Key.UP, new ElevateAction(game, -1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         im.associateActionWithAllKeyboards(Key.DOWN, new ElevateAction(game, +1f),
@@ -84,29 +72,20 @@ public class MyGameInputBinder {
 
         im.associateActionWithAllKeyboards(Key.T, new ToggleAxesAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key._4, new EquipFlashlightAction(game),
+        im.associateActionWithAllKeyboards(Key.F, new ContextFAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key._5, new EquipPotionAction(game),
+        im.associateActionWithAllKeyboards(Key.C, new EquipPotionAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key._6, new UnequipItemAction(game),
+        im.associateActionWithAllKeyboards(Key.Q, new ContextQAction(game),
+                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        im.associateActionWithAllKeyboards(Key.R, new ContextRAction(game),
+                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        im.associateActionWithAllKeyboards(Key.F2, new TogglePhysicsDebugAction(game),
+                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        im.associateActionWithAllKeyboards(Key.F3, new ToggleZombieRoleAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
-        im.associateActionWithAllKeyboards(Key._1, new SkyboxAction(game, 1),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key._2, new SkyboxAction(game, 2),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key._3, new SkyboxAction(game, 3),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-
-        im.associateActionWithAllKeyboards(Key.B, new ToggleBuildAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key.V, new PlaceBuildWallAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key.C, new RemoveBuildWallAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key.R, new RotateBuildWallAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllKeyboards(Key.F, new SwitchBuildPieceAction(game),
+        im.associateActionWithAllKeyboards(Key.E, new ToggleBuildAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
         im.associateActionWithAllKeyboards(Key.TAB, new ToggleMouseLookAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
@@ -135,11 +114,6 @@ public class MyGameInputBinder {
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         im.associateActionWithAllGamepads(Axis.RY, new ElevateAxisAction(game),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-
-        im.associateActionWithAllGamepads(Button._2, new TakePhotoAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
-        im.associateActionWithAllGamepads(Button._0, new PlacePhotosAction(game),
-                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
         im.associateActionWithAllGamepads(Button._4, new OrbitAction(game, -1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
