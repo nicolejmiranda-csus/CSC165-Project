@@ -1,6 +1,7 @@
 package a3;
 
 import java.awt.event.MouseEvent;
+import java.util.UUID;
 import javax.swing.JOptionPane;
 
 import org.joml.Matrix4f;
@@ -14,6 +15,7 @@ import tage.TextureImage;
 import tage.VariableFrameRateGame;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.NetworkDiscovery;
+import tage.shapes.AnimatedShape;
 
 public class MyGame extends VariableFrameRateGame {
 	private static Engine engine;
@@ -27,15 +29,18 @@ public class MyGame extends VariableFrameRateGame {
 	final MyGameInitializer initializer = new MyGameInitializer(this);
 	final MyGameUpdater updater = new MyGameUpdater(this);
 	final MyGameHUDSystem hudSystem = new MyGameHUDSystem(this);
-	final MyGamePhotoSystem photoSystem = new MyGamePhotoSystem(this);
 	final MyGameBuildSystem buildSystem = new MyGameBuildSystem(this);
 	final MyGameCameraSystem cameraSystem = new MyGameCameraSystem(this);
 	final MyGameMovementSystem movementSystem = new MyGameMovementSystem(this);
+	final MyGameAnimationSystem animationSystem = new MyGameAnimationSystem(this);
+	final MyGameSoundSystem soundSystem = new MyGameSoundSystem(this);
 	final MyGameItemSystem itemSystem = new MyGameItemSystem(this);
 	final MyGameVisualSystem visualSystem = new MyGameVisualSystem(this);
 	final MyGameMouseLookSystem mouseLookSystem = new MyGameMouseLookSystem(this);
 	final MyGameNetworkingSystem networking = new MyGameNetworkingSystem(this);
+	final MyGamePhysicsSystem physicsSystem = new MyGamePhysicsSystem(this);
 	final MyGameInputBinder inputBinder = new MyGameInputBinder(this);
+	private final java.util.HashMap<UUID, ObjShape> assignedGhostShapes = new java.util.HashMap<>();
 
 	public MyGame() {
 		super();
@@ -95,7 +100,7 @@ public class MyGame extends VariableFrameRateGame {
 			System.out.println("Server       : java a3.server.NetworkingServer <port> <UDP|TCP>");
 			System.out.println("Auto client  : java a3.MyGame AUTO [avatarType]");
 			System.out.println("Manual client: java a3.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
-			System.out.println("Note         : NetworkingServer relays packets only, so 2 players need 2 MyGame clients.");
+			System.out.println("Note         : NetworkingServer tracks round, pickup, role, health, build, and animation state.");
 			System.out.println("Auto client  : searches the LAN for a running NetworkingServer.");
 			return;
 		}
@@ -127,6 +132,11 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	@Override
+	public void loadSounds() {
+		soundSystem.loadSounds();
+	}
+
+	@Override
 	public void initializeLights() {
 		lighting.initializeLights();
 	}
@@ -134,6 +144,11 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public void initializeGame() {
 		initializer.initializeGame();
+	}
+
+	@Override
+	public void initializePhysicsObjects() {
+		physicsSystem.initializePhysicsObjects();
 	}
 
 	@Override
@@ -149,6 +164,13 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public void mouseDragged(MouseEvent e) {
 		mouseLookSystem.mouseMoved(e);
+	}
+
+	@Override
+	public void mousePressed(MouseEvent e) {
+		if (e.getButton() == MouseEvent.BUTTON1) {
+			handlePrimaryAction();
+		}
 	}
 
 	public void setPadMove(float v) {
@@ -179,22 +201,6 @@ public class MyGame extends VariableFrameRateGame {
 		movementSystem.doJump();
 	}
 
-	public void tryTakePhoto() {
-		photoSystem.tryTakePhoto();
-	}
-
-	public void tryPlacePhotos() {
-		photoSystem.tryPlacePhotos();
-	}
-
-	public void applyRemotePhoto(int idx) {
-		photoSystem.applyRemotePhoto(idx);
-	}
-
-	public void applyRemotePlacePhotos() {
-		photoSystem.applyRemotePlacePhotos();
-	}
-
 	public void toggleBuildMode() {
 		buildSystem.toggleBuildMode();
 	}
@@ -223,12 +229,132 @@ public class MyGame extends VariableFrameRateGame {
 		buildSystem.removeBuildWall();
 	}
 
+	public void useZombieTagAbility() {
+		physicsSystem.useAbility();
+	}
+
+	public void throwZombieTagProjectile() {
+		physicsSystem.throwProjectile();
+	}
+
+	public void attackBuildPiece() {
+		physicsSystem.attackBuildPiece();
+	}
+
+	public void handlePrimaryAction() {
+		if (state.buildMode) {
+			buildSystem.placeBuildWall();
+			return;
+		}
+		if (state.localPlayerZombie) {
+			if (state.equippedItem == GameConstants.ITEM_BABY_ZOMBIE) physicsSystem.throwProjectile();
+			else physicsSystem.attackAsZombie();
+			return;
+		}
+		if (state.equippedItem == GameConstants.ITEM_FLASHLIGHT) itemSystem.toggleEquippedFlashlight();
+		else if (state.equippedItem == GameConstants.ITEM_POTION) itemSystem.usePotion();
+		else if (state.equippedItem == GameConstants.ITEM_ROCK) physicsSystem.throwProjectile();
+		else hudSystem.showEvent("NO ITEM EQUIPPED", 0.8);
+	}
+
+	public void handleFAction() {
+		if (state.localPlayerZombie) physicsSystem.useAbility();
+		else itemSystem.equipFlashlight();
+	}
+
+	public void handleRAction() {
+		if (state.buildMode) buildSystem.rotateBuildWall();
+		else if (state.localPlayerZombie) itemSystem.equipBabyZombie();
+		else physicsSystem.useAbility();
+	}
+
+	public void handleQAction() {
+		if (state.buildMode) buildSystem.switchBuildPiece();
+		else if (!state.localPlayerZombie) itemSystem.equipRock();
+	}
+
+	public void togglePhysicsVisualization() {
+		physicsSystem.togglePhysicsVisualization();
+	}
+
+	public void toggleZombieRoleForTesting() {
+		physicsSystem.toggleLocalRoleForTesting();
+	}
+
 	public void applyRemoteBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
 		buildSystem.applyRemoteBuild(pieceType, modeType, roofDir, p);
 	}
 
 	public void applyRemoteRemoveBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
 		buildSystem.applyRemoteRemoveBuild(pieceType, modeType, roofDir, p);
+	}
+
+	public void applyRemoteRole(java.util.UUID id, boolean zombie) {
+		physicsSystem.applyRemoteRole(id, zombie);
+	}
+
+	public void applyRemoteTag(java.util.UUID sourceId, java.util.UUID targetId) {
+		physicsSystem.applyRemoteTag(sourceId, targetId);
+	}
+
+	public void applyRemoteAbility(java.util.UUID sourceId, String ability, boolean active) {
+		physicsSystem.applyRemoteAbility(sourceId, ability, active);
+	}
+
+	public void applyRemoteProjectile(java.util.UUID sourceId, int projectileType, Vector3f pos, Vector3f velocity) {
+		physicsSystem.spawnRemoteProjectile(sourceId, projectileType, pos, velocity);
+	}
+
+	public void applyRemoteSlow(java.util.UUID sourceId, java.util.UUID targetId, float seconds) {
+		physicsSystem.applyRemoteSlow(sourceId, targetId, seconds);
+	}
+
+	public void applyServerPickupState(int pickupId, int pickupType, boolean active, float x, float z, long respawnEpochMs) {
+		physicsSystem.applyServerPickupState(pickupId, pickupType, active, x, z, respawnEpochMs);
+	}
+
+	public void applyServerPickupSpawn(int pickupId, int pickupType, float x, float z) {
+		physicsSystem.applyServerPickupSpawn(pickupId, pickupType, x, z);
+	}
+
+	public void applyServerPickupHide(int pickupId, long respawnEpochMs) {
+		physicsSystem.applyServerPickupHide(pickupId, respawnEpochMs);
+	}
+
+	public void applyServerPickupGrant(int pickupId, int pickupType) {
+		physicsSystem.applyServerPickupGrant(pickupId, pickupType);
+	}
+
+	public void applyServerRoundWaiting() {
+		physicsSystem.applyServerRoundWaiting();
+	}
+
+	public void applyServerRoundCountdown(long endEpochMs) {
+		physicsSystem.applyServerRoundCountdown(endEpochMs);
+	}
+
+	public void applyServerRoundStart(java.util.UUID zombieId, long endEpochMs) {
+		physicsSystem.applyServerRoundStart(zombieId, endEpochMs);
+	}
+
+	public void applyServerRoundEnd(String winner) {
+		physicsSystem.applyServerRoundEnd(winner);
+	}
+
+	public void applyRemoteHealth(java.util.UUID id, int health) {
+		physicsSystem.applyRemoteHealth(id, health);
+	}
+
+	public void applyRemoteAnimation(java.util.UUID id, String animationName) {
+		physicsSystem.applyRemoteAnimation(id, animationName);
+	}
+
+	public void applyRemoteSound(java.util.UUID sourceId, String soundType, Vector3f location) {
+		soundSystem.playRemoteSound(soundType, location);
+	}
+
+	public void removeRemotePhysicsFor(java.util.UUID id) {
+		physicsSystem.removeRemotePlayerBody(id);
 	}
 
 	public void setOverheadCamera(Camera cam) {
@@ -312,11 +438,23 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public boolean isLost() {
-		return state.lost;
+		return state.matchZombieWon;
 	}
 
 	public boolean isWon() {
-		return state.won;
+		return state.matchHumanWon;
+	}
+
+	public boolean isMatchOver() {
+		return state.matchHumanWon || state.matchZombieWon;
+	}
+
+	public boolean isLocalPlayerZombie() {
+		return state.localPlayerZombie;
+	}
+
+	public boolean isLocalHumanTarget() {
+		return !state.localPlayerZombie && state.health > 0;
 	}
 
 	public float getPlayerYaw() {
@@ -325,6 +463,10 @@ public class MyGame extends VariableFrameRateGame {
 
 	public Vector3f getPlayerPosition() {
 		return assets.avatar.getWorldLocation();
+	}
+
+	public Vector3f avatarForward() {
+		return (new Vector3f(assets.avatar.getWorldForwardVector())).normalize();
 	}
 
 	public void setIsConnected(boolean value) {
@@ -344,12 +486,34 @@ public class MyGame extends VariableFrameRateGame {
 		return "playerModel2".equals(state.selectedAvatarType);
 	}
 
-	public Matrix4f getCollectedHudIconScale() {
-		return (new Matrix4f()).scaling(0.30f, 0.21f, 1f);
+	boolean canUseAnimatedPlayerModel1() {
+		return assets.playerModel1AnimatedS != null;
 	}
 
 	public ObjShape getGhostShape(String avatarType) {
 		return "playerModel2".equals(avatarType) ? assets.playerModel2S : assets.playerModel1S;
+	}
+
+	public ObjShape createGhostShape(String avatarType) {
+		return getGhostShape(avatarType);
+	}
+
+	public ObjShape createGhostShape(UUID id, String avatarType) {
+		if ("playerModel2".equals(avatarType)) return assets.playerModel2S;
+		if (id != null && assignedGhostShapes.containsKey(id)) return assignedGhostShapes.get(id);
+		if (assets.playerModel1GhostAnimatedS != null) {
+			for (AnimatedShape shape : assets.playerModel1GhostAnimatedS) {
+				if (assignedGhostShapes.containsValue(shape)) continue;
+				if (id != null) assignedGhostShapes.put(id, shape);
+				return shape;
+			}
+		}
+		System.out.println("animated ghost shape pool exhausted; using static player model");
+		return assets.playerModel1S;
+	}
+
+	public void releaseGhostShape(UUID id) {
+		if (id != null) assignedGhostShapes.remove(id);
 	}
 
 	public TextureImage getGhostTexture(String avatarType) {
@@ -364,6 +528,10 @@ public class MyGame extends VariableFrameRateGame {
 		if (state.gm == null)
 			state.gm = new GhostManager(this);
 		return state.gm;
+	}
+
+	public String getRemoteAnimationState(java.util.UUID id) {
+		return state.remoteAnimationStates.getOrDefault(id, "IDLE");
 	}
 
 	int winW() {
