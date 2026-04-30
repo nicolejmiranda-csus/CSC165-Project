@@ -14,13 +14,6 @@ public class MyGameLighting {
         MyGameAssets a = game.assets;
         Light.setGlobalAmbient(0.35f, 0.35f, 0.35f);
 
-        for (int i = 0; i < 3; i++) {
-            a.lightPyramid[i] = new Light();
-            Vector3f p = a.pyramids[i].getWorldLocation();
-            a.lightPyramid[i].setLocation(new Vector3f(p.x, p.y + 8f, p.z));
-            MyGame.getEngine().getSceneGraph().addLight(a.lightPyramid[i]);
-        }
-
         Light lightHome = new Light();
         lightHome.setLocation(new Vector3f(0f, 8f, 0f));
         MyGame.getEngine().getSceneGraph().addLight(lightHome);
