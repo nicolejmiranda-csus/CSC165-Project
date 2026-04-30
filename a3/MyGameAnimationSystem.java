@@ -66,7 +66,7 @@ public class MyGameAnimationSystem {
 
     private AnimatedShape getAnimatedAvatarShape() {
         if (game.isPlayerModel2Selected() || !game.canUseAnimatedPlayerModel1()) {
-            return null;
+            return game.assets.playerModel2AnimatedS;
         }
         return game.assets.playerModel1AnimatedS;
     }

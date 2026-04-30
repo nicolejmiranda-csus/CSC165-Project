@@ -16,6 +16,8 @@ public class MyGameAssets {
     TerrainPlane terrainShape;
     AnimatedShape playerModel1AnimatedS;
     AnimatedShape[] playerModel1GhostAnimatedS;
+    AnimatedShape playerModel2AnimatedS;
+    AnimatedShape[] playerModel2GhostAnimatedS;
     ObjShape playerModel1S, playerModel2S, flashlightS, tableS, healthPotionS, dolphinS;
     ObjShape cubeS, rock2S, lowpolyHoodS, dashPickupS, babyZombieS;
     ObjShape[] sceneryRockS, sceneryTreeS;
