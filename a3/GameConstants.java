@@ -17,7 +17,32 @@ public final class GameConstants {
     public static final int ITEM_NONE = 0;
     public static final int ITEM_FLASHLIGHT = 1;
     public static final int ITEM_POTION = 2;
+    public static final int ITEM_ROCK = 3;
+    public static final int ITEM_BABY_ZOMBIE = 4;
 
-    public static final float PYR_COLLIDER_MULT = 1.35f;
-    public static final float PYR_COLLIDER_PAD = 0.6f;
+    public static final int PICKUP_DASH = 0;
+    public static final int PICKUP_INVIS = 1;
+    public static final int PICKUP_BUILD = 2;
+    public static final int PICKUP_ROCK = 3;
+    public static final int PICKUP_BABY_ZOMBIE = 4;
+    public static final int PICKUP_FLASHLIGHT = 5;
+    public static final int PICKUP_POTION = 6;
+
+    public static final int[] ZOMBIE_TAG_PICKUP_TYPES = {
+        PICKUP_DASH, PICKUP_DASH, PICKUP_DASH, PICKUP_DASH, PICKUP_DASH,
+        PICKUP_DASH, PICKUP_DASH, PICKUP_DASH,
+        PICKUP_INVIS, PICKUP_INVIS, PICKUP_INVIS, PICKUP_INVIS,
+        PICKUP_INVIS, PICKUP_INVIS,
+        PICKUP_BUILD, PICKUP_BUILD, PICKUP_BUILD, PICKUP_BUILD,
+        PICKUP_BUILD, PICKUP_BUILD, PICKUP_BUILD, PICKUP_BUILD,
+        PICKUP_BUILD, PICKUP_BUILD,
+        PICKUP_ROCK, PICKUP_ROCK, PICKUP_ROCK, PICKUP_ROCK,
+        PICKUP_ROCK, PICKUP_ROCK, PICKUP_ROCK, PICKUP_ROCK,
+        PICKUP_BABY_ZOMBIE, PICKUP_BABY_ZOMBIE, PICKUP_BABY_ZOMBIE,
+        PICKUP_BABY_ZOMBIE, PICKUP_BABY_ZOMBIE, PICKUP_BABY_ZOMBIE,
+        PICKUP_FLASHLIGHT, PICKUP_FLASHLIGHT, PICKUP_FLASHLIGHT,
+        PICKUP_FLASHLIGHT, PICKUP_FLASHLIGHT, PICKUP_FLASHLIGHT,
+        PICKUP_POTION, PICKUP_POTION, PICKUP_POTION, PICKUP_POTION,
+        PICKUP_POTION, PICKUP_POTION, PICKUP_POTION, PICKUP_POTION
+    };
 }
