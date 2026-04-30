@@ -9,8 +9,21 @@ import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
 
 public class GameServerTCP extends GameConnectionServer<UUID> {
+	private final ServerGameState gameState;
+
 	public GameServerTCP(int localPort) throws IOException {
 		super(localPort, ProtocolType.TCP);
+		gameState = new ServerGameState(new ServerMessenger() {
+			@Override
+			public void sendTo(UUID targetId, String message) {
+				try {
+					logDirectPacket(message, targetId);
+					sendPacket(message, targetId);
+				} catch (IOException e) {
+					e.printStackTrace();
+				}
+			}
+		});
 	}
 
 	private void logInboundPacket(String message, InetAddress senderIP, int senderPort) {
@@ -59,6 +72,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 			UUID clientID = UUID.fromString(messageTokens[1]);
 			addClient(ci, clientID);
 			sendJoinedMessage(clientID, true);
+			gameState.onJoin(clientID);
 		} catch (IllegalArgumentException e) {
 			System.out.println("server ignored malformed packet --> " + message);
 		}
@@ -83,6 +97,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					if (!hasTokenCount(messageTokens, 2, message))
 						return;
 					UUID byeClientId = UUID.fromString(messageTokens[1]);
+					gameState.onBye(byeClientId);
 					sendByeMessages(byeClientId);
 					removeClient(byeClientId);
 					return;
@@ -130,6 +145,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 							messageTokens[6],
 							messageTokens[7]
 					};
+					gameState.onBuild(buildClientId, buildData);
 					sendBuildMessages(buildClientId, buildData);
 					return;
 
@@ -145,21 +161,64 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 							messageTokens[6],
 							messageTokens[7]
 					};
+					gameState.onRemoveBuild(removeBuildClientId, removeBuildData);
 					sendRemoveBuildMessages(removeBuildClientId, removeBuildData);
 					return;
 
-				case "photo":
+				case "role":
 					if (!hasTokenCount(messageTokens, 3, message))
 						return;
-					UUID photoClientId = UUID.fromString(messageTokens[1]);
-					sendPhotoMessages(photoClientId, messageTokens[2]);
+					gameState.onRole(UUID.fromString(messageTokens[1]), Integer.parseInt(messageTokens[2]) != 0);
 					return;
 
-				case "placephotos":
-					if (!hasTokenCount(messageTokens, 2, message))
+				case "tag":
+					if (!hasTokenCount(messageTokens, 3, message))
 						return;
-					UUID placePhotosClientId = UUID.fromString(messageTokens[1]);
-					sendPlacePhotosMessages(placePhotosClientId);
+					gameState.onTag(UUID.fromString(messageTokens[1]), UUID.fromString(messageTokens[2]));
+					return;
+
+				case "pickupcollect":
+					if (!hasTokenCount(messageTokens, 3, message))
+						return;
+					gameState.onPickupCollect(UUID.fromString(messageTokens[1]), Integer.parseInt(messageTokens[2]));
+					return;
+
+				case "health":
+					if (!hasTokenCount(messageTokens, 3, message))
+						return;
+					gameState.onHealth(UUID.fromString(messageTokens[1]), Integer.parseInt(messageTokens[2]));
+					return;
+
+				case "anim":
+					if (!hasTokenCount(messageTokens, 3, message))
+						return;
+					gameState.onAnimation(UUID.fromString(messageTokens[1]), messageTokens[2]);
+					return;
+
+				case "sound":
+					if (!hasTokenCount(messageTokens, 6, message))
+						return;
+					forwardGameplayMessage(message, UUID.fromString(messageTokens[1]));
+					return;
+
+				case "ability":
+					if (!hasTokenCount(messageTokens, 4, message))
+						return;
+					UUID abilityClientId = UUID.fromString(messageTokens[1]);
+					if (gameState.onAbility(abilityClientId, messageTokens[2], Integer.parseInt(messageTokens[3]) != 0))
+						forwardGameplayMessage(message, abilityClientId);
+					return;
+
+				case "projectile":
+					if (!hasTokenCount(messageTokens, 9, message))
+						return;
+					gameState.onProjectile(UUID.fromString(messageTokens[1]), Integer.parseInt(messageTokens[2]), message);
+					return;
+
+				case "slow":
+					if (!hasTokenCount(messageTokens, 4, message))
+						return;
+					gameState.onSlow(UUID.fromString(messageTokens[1]), UUID.fromString(messageTokens[2]), Float.parseFloat(messageTokens[3]));
 					return;
 
 				default:
@@ -328,19 +387,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 		}
 	}
 
-	public void sendPhotoMessages(UUID clientID, String pyramidIndex) {
+	private void forwardGameplayMessage(String message, UUID clientID) {
 		try {
-			String message = "photo," + clientID.toString() + "," + pyramidIndex;
-			logForwardPacket(message, clientID);
-			forwardPacketToAll(message, clientID);
-		} catch (IOException e) {
-			e.printStackTrace();
-		}
-	}
-
-	public void sendPlacePhotosMessages(UUID clientID) {
-		try {
-			String message = "placephotos," + clientID.toString();
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
