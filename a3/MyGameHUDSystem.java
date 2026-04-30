@@ -5,6 +5,7 @@ import tage.HUDmanager;
 
 public class MyGameHUDSystem {
     private final MyGame game;
+    private final Vector3f hudLight = new Vector3f(0.95f, 0.94f, 0.72f);
 
     public MyGameHUDSystem(MyGame game) {
         this.game = game;
@@ -25,28 +26,38 @@ public class MyGameHUDSystem {
 
     public void updateHUD() {
         HUDmanager hud = MyGame.getEngine().getHUDmanager();
-        String top = "HEALTH " + game.state.health + "/" + game.state.maxHealth + "   |   COLLECTED " + game.state.score + "/3";
+        String role = game.state.localPlayerZombie ? "ZOMBIE" : "HUMAN";
+        String round;
+        if (game.state.matchHumanWon) round = "HUMANS WIN";
+        else if (game.state.matchZombieWon) round = "ZOMBIES WIN";
+        else if (game.state.zombieRoundActive) round = "SURVIVE " + Math.max(0, (int) Math.ceil(game.state.survivalTimeRemaining));
+        else if (game.state.isMultiplayer && !game.state.zombieIntermissionStarted) round = "WAITING FOR 2 PLAYERS";
+        else round = "INTERMISSION " + Math.max(0, (int) Math.ceil(game.state.zombieIntermissionRemaining));
+        String top = role + "   |   " + round + "   |   " + buildRoleStatus();
+        if (game.state.slowTimer > 0.0) top += "   |   SLOWED";
+        if (game.state.invisTimer > 0.0) top += "   |   INVISIBLE";
         if (!game.state.eventMsg.isEmpty()) top += "   |   " + game.state.eventMsg;
-        hud.setHUD1(top, new Vector3f(0.75f, 0.75f, 0.35f), 15, 15);
+        hud.setHUD1(top, hudLight, 15, 15);
 
         if (game.state.helpPage == 1) {
-            hud.setHUD2("KEY W S MOVE   A D STRAFE   LEFT RIGHT TURN   SHIFT RUN   SPACE JUMP   P PHOTO   ENTER PLACE", new Vector3f(0, 0, 0), 15, 40);
-            hud.setHUD3("T AXES G CAMERA Y SWAP SHOULDER Q E ORBIT UP DOWN ELEVATE Z X ZOOM I K J L PAN OVER U O OVER ZOOM", new Vector3f(0, 0, 0), 15, 65);
+            String[] lines = keyboardHelpLines();
+            hud.setHUD2(lines[0], hudLight, 15, 40);
+            hud.setHUD3(lines[1], hudLight, 15, 65);
         } else if (game.state.helpPage == 2) {
-            hud.setHUD2("PAD LS MOVE STRAFE   RS X TURN   Y JUMP   X PHOTO   A PLACE   B AXES   PAD LB RB ORBIT", new Vector3f(0, 0, 0), 15, 40);
-            hud.setHUD3("RS Y ELEVATE   BACK ZOOM IN   START ZOOM OUT   DPAD PAN OVER   LT OVER IN   RT OVER OUT", new Vector3f(0, 0, 0), 15, 65);
+            hud.setHUD2("PAD LS MOVE STRAFE   RS X TURN   Y JUMP   B AXES   PAD LB RB ORBIT", hudLight, 15, 40);
+            hud.setHUD3("RS Y ELEVATE   BACK ZOOM IN   START ZOOM OUT   DPAD PAN OVER   LT OVER IN   RT OVER OUT", hudLight, 15, 65);
         } else {
             String[] lines = buildGuideLines();
-            hud.setHUD2(lines[0], new Vector3f(0, 0, 0), 15, 40);
-            hud.setHUD3(lines[1], new Vector3f(0, 0, 0), 15, 65);
+            hud.setHUD2(lines[0], hudLight, 15, 40);
+            hud.setHUD3(lines[1], hudLight, 15, 65);
         }
 
         if (!game.state.fullMapMode) {
             Vector3f p = game.assets.avatar.getWorldLocation();
             String pos = String.format("POS (%.1f, %.1f, %.1f)", p.x, p.y, p.z);
-            hud.setHUD4(pos, new Vector3f(0, 0, 0), game.overHudLeftPx() + 12, game.overHudTopPx() + 18);
+            hud.setHUD4(pos, hudLight, game.overHudLeftPx() + 12, game.overHudTopPx() + 18);
         } else {
-            hud.setHUD4("", new Vector3f(0, 0, 0), 0, 0);
+            hud.setHUD4("", hudLight, 0, 0);
         }
     }
 
@@ -59,23 +70,47 @@ public class MyGameHUDSystem {
     }
 
     private String[] buildGuideLines() {
-        if (game.state.lost) return new String[]{"CRASHED!", "YOU LOSE"};
-        if (game.state.won) return new String[]{"PHOTOS PLACED!", "YOU WIN"};
+        if (game.state.matchZombieWon) return new String[]{"ZOMBIES WIN", "ALL HUMANS WERE TAGGED BEFORE TIME RAN OUT"};
+        if (game.state.matchHumanWon) return new String[]{"HUMANS WIN", "AT LEAST ONE HUMAN SURVIVED 300 SECONDS"};
+        if (game.state.localPlayerZombie) {
+            return new String[]{
+                "ZOMBIE: TAG EVERY HUMAN BEFORE TIME RUNS OUT",
+                "F INVISIBILITY   R EQUIP BABY ZOMBIE   LEFT CLICK THROW/ATTACK   BABIES " + game.state.babyZombieCharges
+            };
+        }
         if (game.state.buildMode) {
             String pieceName = game.state.buildPieceType == 0 ? "WALL" : "ROOF";
             return new String[]{
-                "BUILD MODE: V PLACE   C REMOVE   R ROTATE   F SWITCH TYPE   TAB LOCK/UNLOCK   . UP   N DOWN",
-                "PIECE " + pieceName + "   HEIGHT " + game.state.buildHeightLevel + "   PRESS B TO EXIT BUILD MODE"
+                "BUILD MODE: LEFT CLICK PLACE   R ROTATE   Q SWITCH PIECE   . UP   N DOWN",
+                "PIECE " + pieceName + "   HEIGHT " + game.state.buildHeightLevel + "   MATERIALS " + game.state.buildMaterials + "   PRESS E TO EXIT"
             };
         }
-        if (game.state.score == 3) {
-            if (game.photoSystem.distanceToHome() <= game.state.homeRange) {
-                return new String[]{"HOME REACHED: PLACE PHOTOS", "PRESS ENTER OR A ON CONTROLLER"};
-            }
-            return new String[]{"ALL PHOTOS TAKEN: RETURN HOME", "FLY HOME THEN PRESS ENTER OR A ON CONTROLLER"};
+        return new String[]{
+            "HUMAN: SURVIVE UNTIL THE TIMER HITS ZERO",
+            "F FLASHLIGHT   C POTION   Q ROCK   R DASH   E BUILD   LEFT CLICK USE"
+        };
+    }
+
+    private String buildRoleStatus() {
+        if (game.state.localPlayerZombie) {
+            String invis = game.state.invisCharges > 0 ? "READY" : "EMPTY";
+            return "INVIS " + invis + "   BABIES " + game.state.babyZombieCharges + "   HEALTH --";
         }
-        int near = game.photoSystem.closestPyramidWithinRange();
-        if (near >= 0) return new String[]{"PYRAMID IN RANGE: TAKE PHOTO", "PRESS P OR X ON CONTROLLER"};
-        return new String[]{"FIND A PYRAMID AND GET CLOSER", "PRESS B TO ENTER BUILD MODE TAB LOCK/UNLOCK MOUSE G CAMERA Y SWAP"};
+        String dash = game.state.dashCharges > 0 ? "READY" : "EMPTY";
+        return "HEALTH " + game.state.health + "/" + game.state.maxHealth + "   DASH " + dash
+                + "   ROCKS " + game.state.rockCharges + "   MATERIALS " + game.state.buildMaterials;
+    }
+
+    private String[] keyboardHelpLines() {
+        if (game.state.localPlayerZombie) {
+            return new String[]{
+                "KEY W S MOVE   A D STRAFE   LEFT RIGHT TURN   SHIFT RUN   SPACE JUMP",
+                "F INVISIBILITY   R BABY ZOMBIE   LEFT CLICK THROW/ATTACK   TAB MOUSE   F2 PHYSICS VIEW"
+            };
+        }
+        return new String[]{
+            "KEY W S MOVE   A D STRAFE   LEFT RIGHT TURN   SHIFT RUN   SPACE JUMP",
+            "F LIGHT   C POTION   Q ROCK   R DASH   E BUILD   LEFT CLICK USE/PLACE   TAB MOUSE"
+        };
     }
 }
