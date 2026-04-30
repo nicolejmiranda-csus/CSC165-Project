@@ -181,17 +181,161 @@ public class ProtocolClient extends GameConnectionClient {
 				game.applyRemoteRemoveBuild(pieceType, modeType, roofDir, pos);
 			}
 
-			// Handle PHOTO message
-			if (messageTokens[0].compareTo("photo") == 0) {
+			// Handle ROLE message
+			// Format: (role,remoteId,0|1)
+			if (messageTokens[0].compareTo("role") == 0) {
 				if (messageTokens.length < 3)
 					return;
-				int pyramidIndex = Integer.parseInt(messageTokens[2]);
-				game.applyRemotePhoto(pyramidIndex);
+				UUID remoteId = UUID.fromString(messageTokens[1]);
+				boolean zombie = Integer.parseInt(messageTokens[2]) != 0;
+				game.applyRemoteRole(remoteId, zombie);
 			}
 
-			// Handle PLACEPHOTOS message
-			if (messageTokens[0].compareTo("placephotos") == 0) {
-				game.applyRemotePlacePhotos();
+			// Handle TAG message
+			// Format: (tag,sourceId,targetId)
+			if (messageTokens[0].compareTo("tag") == 0) {
+				if (messageTokens.length < 3)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				UUID targetId = UUID.fromString(messageTokens[2]);
+				game.applyRemoteTag(sourceId, targetId);
+			}
+
+			// Handle ABILITY message
+			// Format: (ability,sourceId,abilityName,0|1)
+			if (messageTokens[0].compareTo("ability") == 0) {
+				if (messageTokens.length < 4)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				String ability = messageTokens[2];
+				boolean active = Integer.parseInt(messageTokens[3]) != 0;
+				game.applyRemoteAbility(sourceId, ability, active);
+			}
+
+			// Handle PROJECTILE message
+			// Format: (projectile,sourceId,type,x,y,z,vx,vy,vz)
+			if (messageTokens[0].compareTo("projectile") == 0) {
+				if (messageTokens.length < 9)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				int projectileType = Integer.parseInt(messageTokens[2]);
+				Vector3f pos = new Vector3f(
+						Float.parseFloat(messageTokens[3]),
+						Float.parseFloat(messageTokens[4]),
+						Float.parseFloat(messageTokens[5]));
+				Vector3f velocity = new Vector3f(
+						Float.parseFloat(messageTokens[6]),
+						Float.parseFloat(messageTokens[7]),
+						Float.parseFloat(messageTokens[8]));
+				game.applyRemoteProjectile(sourceId, projectileType, pos, velocity);
+			}
+
+			// Handle SLOW message
+			// Format: (slow,sourceId,targetId,seconds)
+			if (messageTokens[0].compareTo("slow") == 0) {
+				if (messageTokens.length < 4)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				UUID targetId = UUID.fromString(messageTokens[2]);
+				float seconds = Float.parseFloat(messageTokens[3]);
+				game.applyRemoteSlow(sourceId, targetId, seconds);
+			}
+
+			// Handle PICKUPSTATE message
+			// Format: (pickupstate,id,type,0|1,x,z,respawnEpochMs)
+			if (messageTokens[0].compareTo("pickupstate") == 0) {
+				if (messageTokens.length < 7)
+					return;
+				int pickupId = Integer.parseInt(messageTokens[1]);
+				int pickupType = Integer.parseInt(messageTokens[2]);
+				boolean active = Integer.parseInt(messageTokens[3]) != 0;
+				float x = Float.parseFloat(messageTokens[4]);
+				float z = Float.parseFloat(messageTokens[5]);
+				long respawnEpochMs = Long.parseLong(messageTokens[6]);
+				game.applyServerPickupState(pickupId, pickupType, active, x, z, respawnEpochMs);
+			}
+
+			// Handle PICKUPSPAWN message
+			// Format: (pickupspawn,id,type,x,z)
+			if (messageTokens[0].compareTo("pickupspawn") == 0) {
+				if (messageTokens.length < 5)
+					return;
+				int pickupId = Integer.parseInt(messageTokens[1]);
+				int pickupType = Integer.parseInt(messageTokens[2]);
+				float x = Float.parseFloat(messageTokens[3]);
+				float z = Float.parseFloat(messageTokens[4]);
+				game.applyServerPickupSpawn(pickupId, pickupType, x, z);
+			}
+
+			// Handle PICKUPHIDE message
+			// Format: (pickuphide,id,respawnEpochMs)
+			if (messageTokens[0].compareTo("pickuphide") == 0) {
+				if (messageTokens.length < 3)
+					return;
+				int pickupId = Integer.parseInt(messageTokens[1]);
+				long respawnEpochMs = Long.parseLong(messageTokens[2]);
+				game.applyServerPickupHide(pickupId, respawnEpochMs);
+			}
+
+			// Handle PICKUPGRANT message
+			// Format: (pickupgrant,id,type)
+			if (messageTokens[0].compareTo("pickupgrant") == 0) {
+				if (messageTokens.length < 3)
+					return;
+				int pickupId = Integer.parseInt(messageTokens[1]);
+				int pickupType = Integer.parseInt(messageTokens[2]);
+				game.applyServerPickupGrant(pickupId, pickupType);
+			}
+
+			// Handle ROUND message
+			// Formats: round,waiting | round,countdown,endEpochMs |
+			//          round,start,zombieId,endEpochMs | round,end,humans|zombies
+			if (messageTokens[0].compareTo("round") == 0) {
+				if (messageTokens.length < 2)
+					return;
+				String phase = messageTokens[1];
+				if ("waiting".equals(phase)) {
+					game.applyServerRoundWaiting();
+				} else if ("countdown".equals(phase) && messageTokens.length >= 3) {
+					game.applyServerRoundCountdown(Long.parseLong(messageTokens[2]));
+				} else if ("start".equals(phase) && messageTokens.length >= 4) {
+					UUID zombieId = UUID.fromString(messageTokens[2]);
+					game.applyServerRoundStart(zombieId, Long.parseLong(messageTokens[3]));
+				} else if ("end".equals(phase) && messageTokens.length >= 3) {
+					game.applyServerRoundEnd(messageTokens[2]);
+				}
+			}
+
+			// Handle HEALTH message
+			// Format: (health,remoteId,value)
+			if (messageTokens[0].compareTo("health") == 0) {
+				if (messageTokens.length < 3)
+					return;
+				UUID remoteId = UUID.fromString(messageTokens[1]);
+				int health = Integer.parseInt(messageTokens[2]);
+				game.applyRemoteHealth(remoteId, health);
+			}
+
+			// Handle ANIM message
+			// Format: (anim,remoteId,animationName)
+			if (messageTokens[0].compareTo("anim") == 0) {
+				if (messageTokens.length < 3)
+					return;
+				UUID remoteId = UUID.fromString(messageTokens[1]);
+				game.applyRemoteAnimation(remoteId, messageTokens[2]);
+			}
+
+			// Handle SOUND message
+			// Format: (sound,remoteId,soundType,x,y,z)
+			if (messageTokens[0].compareTo("sound") == 0) {
+				if (messageTokens.length < 6)
+					return;
+				UUID remoteId = UUID.fromString(messageTokens[1]);
+				Vector3f location = new Vector3f(
+						Float.parseFloat(messageTokens[3]),
+						Float.parseFloat(messageTokens[4]),
+						Float.parseFloat(messageTokens[5]));
+				game.applyRemoteSound(remoteId, messageTokens[2], location);
 			}
 		}
 	}
@@ -299,18 +443,86 @@ public class ProtocolClient extends GameConnectionClient {
 		}
 	}
 
-	public void sendPhotoMessage(int pyramidIndex) {
+	public void sendRoleMessage(boolean zombie) {
 		try {
-			String message = "photo," + id.toString() + "," + pyramidIndex;
+			String message = "role," + id.toString() + "," + (zombie ? 1 : 0);
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-	public void sendPlacePhotosMessage() {
+	public void sendTagMessage(UUID targetId) {
 		try {
-			String message = "placephotos," + id.toString();
+			String message = "tag," + id.toString() + "," + targetId.toString();
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendAbilityMessage(String ability, boolean active) {
+		try {
+			String message = "ability," + id.toString() + "," + ability + "," + (active ? 1 : 0);
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendProjectileMessage(int projectileType, Vector3f pos, Vector3f velocity) {
+		try {
+			String message = "projectile," + id.toString() + "," + projectileType;
+			message += "," + pos.x() + "," + pos.y() + "," + pos.z();
+			message += "," + velocity.x() + "," + velocity.y() + "," + velocity.z();
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSlowMessage(UUID targetId, float seconds) {
+		try {
+			String message = "slow," + id.toString() + "," + targetId.toString() + "," + seconds;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendPickupCollectMessage(int pickupId) {
+		try {
+			String message = "pickupcollect," + id.toString() + "," + pickupId;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendHealthMessage(int health) {
+		try {
+			String message = "health," + id.toString() + "," + health;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendAnimationMessage(String animationName) {
+		try {
+			String message = "anim," + id.toString() + "," + animationName;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSoundMessage(String soundType, Vector3f location) {
+		try {
+			String message = "sound," + id.toString() + "," + soundType;
+			message += "," + location.x();
+			message += "," + location.y();
+			message += "," + location.z();
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();

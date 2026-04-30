@@ -25,13 +25,14 @@ public class GhostManager {
 		if (findAvatar(id) != null)
 			return;
 
-		ObjShape s = game.getGhostShape(avatarType);
+		ObjShape s = game.createGhostShape(id, avatarType);
 		TextureImage t = game.getGhostTexture(avatarType);
 
 		GhostAvatar newAvatar = new GhostAvatar(id, avatarType, s, t, position);
 		Matrix4f initialScale = game.getGhostScale(avatarType);
 		newAvatar.setLocalScale(initialScale);
 		newAvatar.setYaw(yaw);
+		newAvatar.playAnimationState(game.getRemoteAnimationState(id));
 
 		ghostAvatars.add(newAvatar);
 	}
@@ -39,8 +40,10 @@ public class GhostManager {
 	public void removeGhostAvatar(UUID id) {
 		GhostAvatar ghostAvatar = findAvatar(id);
 		if (ghostAvatar != null) {
+			game.removeRemotePhysicsFor(id);
 			MyGame.getEngine().getSceneGraph().removeGameObject(ghostAvatar);
 			ghostAvatars.remove(ghostAvatar);
+			game.releaseGhostShape(id);
 		} else {
 			System.out.println("tried to remove, but unable to find ghost in list");
 		}
@@ -54,6 +57,14 @@ public class GhostManager {
 		return null;
 	}
 
+	public GhostAvatar getGhostAvatar(UUID id) {
+		return findAvatar(id);
+	}
+
+	public Vector<GhostAvatar> getGhostAvatarsSnapshot() {
+		return new Vector<GhostAvatar>(ghostAvatars);
+	}
+
 	public void updateGhostAvatar(UUID id, Vector3f position, float yaw) {
 		GhostAvatar ghostAvatar = findAvatar(id);
 
@@ -62,6 +73,17 @@ public class GhostManager {
 			ghostAvatar.setYaw(yaw);
 		} else {
 			System.out.println("tried to update ghost avatar, but unable to find ghost in list");
+		}
+	}
+
+	public void applyGhostAnimation(UUID id, String animationName) {
+		GhostAvatar ghostAvatar = findAvatar(id);
+		if (ghostAvatar != null) ghostAvatar.playAnimationState(animationName);
+	}
+
+	public void updateGhostAnimations() {
+		for (GhostAvatar ghostAvatar : ghostAvatars) {
+			ghostAvatar.updateAnimation();
 		}
 	}
 }
