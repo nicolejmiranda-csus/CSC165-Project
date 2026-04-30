@@ -89,7 +89,6 @@ public class MyGameMouseLookSystem {
     }
 
     private void yawMouse(float mouseDeltaX) {
-        if (game.state.lost || game.state.won) return;
         if (Math.abs(mouseDeltaX) < 0.001f) return;
         float yawAmt = mouseDeltaX * game.state.mouseYawSpeed;
         game.assets.avatar.globalYaw(yawAmt);
@@ -102,7 +101,7 @@ public class MyGameMouseLookSystem {
     }
 
     private void pitchMouse(float mouseDeltaY) {
-        if (game.state.lost || game.state.won || game.state.orbitCam == null) return;
+        if (game.state.orbitCam == null) return;
         if (Math.abs(mouseDeltaY) < 0.001f) return;
         game.state.orbitElevationDeg += -mouseDeltaY * game.state.mouseElevSpeed;
         if (game.state.orbitElevationDeg < game.state.minOrbitElevationDeg) game.state.orbitElevationDeg = game.state.minOrbitElevationDeg;
