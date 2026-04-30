@@ -79,7 +79,7 @@ public class MyGameNetworkingSystem {
 
     private void printMultiplayerStartupHints(InetAddress remoteAddress) {
         System.out.println("multiplayer target --> " + game.state.serverAddress + " (" + remoteAddress.getHostAddress() + "):" + game.state.serverPort + " using " + game.state.serverProtocol);
-        System.out.println("multiplayer note --> NetworkingServer is a relay only; launch two separate MyGame clients for two players");
+        System.out.println("multiplayer note --> launch two separate MyGame clients for two players");
         if (remoteAddress.isAnyLocalAddress() || remoteAddress.isLoopbackAddress()) {
             System.out.println("multiplayer note --> " + game.state.serverAddress + " only reaches this same computer");
             System.out.println("multiplayer note --> remote machines must use the server computer's LAN IPv4 address instead of localhost");
@@ -89,6 +89,7 @@ public class MyGameNetworkingSystem {
     private void sendByeAndClose() {
         if (game.state.byeMessageSent) return;
         game.state.byeMessageSent = true;
+        game.soundSystem.stopAll();
         if (game.state.protClient != null && game.state.isClientConnected) {
             System.out.println("sending bye message to protocol host");
             game.state.protClient.sendByeMessage();
