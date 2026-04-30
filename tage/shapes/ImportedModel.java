@@ -103,41 +103,68 @@ public class ImportedModel extends ObjShape
 			BufferedReader br = new BufferedReader(new InputStreamReader(input));
 			String line;
 			while ((line = br.readLine()) != null)
-			{	if(line.startsWith("v ")) // Vertex position v case
-			{	for(String s : (line.substring(2)).split(" "))
+			{	line = line.trim();
+				if (line.isEmpty() || line.startsWith("#")) continue;
+				if(line.startsWith("v ")) // Vertex position v case
+			{	for(String s : (line.substring(2).trim()).split("\\s+"))
 			{	vertVals.add(Float.valueOf(s));
 			}	}
 			else if(line.startsWith("vt")) // Texture coordinates vt case
-			{	for(String s : (line.substring(3)).split(" "))
+			{	for(String s : (line.substring(3).trim()).split("\\s+"))
 			{	stVals.add(Float.valueOf(s));
 			}	}
 			else if(line.startsWith("vn")) // Vertex normals vn case
-			{	for(String s : (line.substring(3)).split(" "))
+			{	for(String s : (line.substring(3).trim()).split("\\s+"))
 			{	normVals.add(Float.valueOf(s));
 			}	}
 			else if(line.startsWith("f")) // Triangle faces f case
-			{	for(String s : (line.substring(2)).split(" "))
-			{	String v = s.split("/")[0];
-				String vt = s.split("/")[1];
-				String vn = s.split("/")[2];
+			{	for(String s : (line.substring(2).trim()).split("\\s+"))
+			{	String[] faceRefs = s.split("/", -1);
+				String v = faceRefs.length > 0 ? faceRefs[0] : "";
+				String vt = faceRefs.length > 1 ? faceRefs[1] : "";
+				String vn = faceRefs.length > 2 ? faceRefs[2] : "";
 
 				// OBJ indices are one based so subtract one before indexing arrays
-				int vertRef = (Integer.valueOf(v)-1)*3;
-				int tcRef   = (Integer.valueOf(vt)-1)*2;
-				int normRef = (Integer.valueOf(vn)-1)*3;
+				int vertRef = (resolveObjIndex(v, vertVals.size()/3)-1)*3;
 
 				triangleVerts.add(vertVals.get(vertRef));
 				triangleVerts.add(vertVals.get((vertRef)+1));
 				triangleVerts.add(vertVals.get((vertRef)+2));
 
-				textureCoords.add(stVals.get(tcRef));
-				textureCoords.add(stVals.get(tcRef+1));
+				if (vt.isEmpty() || stVals.isEmpty()) {
+					textureCoords.add(generatedU(vertRef));
+					textureCoords.add(generatedV(vertRef));
+				} else {
+					int tcRef = (resolveObjIndex(vt, stVals.size()/2)-1)*2;
+					textureCoords.add(stVals.get(tcRef));
+					textureCoords.add(stVals.get(tcRef+1));
+				}
 
-				normals.add(normVals.get(normRef));
-				normals.add(normVals.get(normRef+1));
-				normals.add(normVals.get(normRef+2));
+				if (vn.isEmpty() || normVals.isEmpty()) {
+					normals.add(0.0f);
+					normals.add(1.0f);
+					normals.add(0.0f);
+				} else {
+					int normRef = (resolveObjIndex(vn, normVals.size()/3)-1)*3;
+					normals.add(normVals.get(normRef));
+					normals.add(normVals.get(normRef+1));
+					normals.add(normVals.get(normRef+2));
+				}
 			}	}	}
 			input.close();
+		}
+
+		private int resolveObjIndex(String value, int elementCount)
+		{	int index = Integer.valueOf(value);
+			return index < 0 ? elementCount + index + 1 : index;
+		}
+
+		private float generatedU(int vertRef)
+		{	return vertVals.get(vertRef) * 0.25f;
+		}
+
+		private float generatedV(int vertRef)
+		{	return vertVals.get(vertRef + 2) * 0.25f;
 		}
 
 		protected int getNumVertices() { return (triangleVerts.size()/3); }
