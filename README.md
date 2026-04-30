@@ -1,3 +1,60 @@
+free asset links:
+https://jaks.itch.io/lowpolyforestpack
+
+https://emerald-eel.itch.io/low-poly-foliage-pack-001
+
+https://zlab.itch.io/realistic-texture-pack
+
+https://owletrius.itch.io/wood-texture-pack
+
+https://free3d.com/3d-model/child-running-with-backpack-v2--55569.html
+
+https://sketchfab.com/3d-models/cape-61e185ae00b640258071c581ab40f749
+
+free sound links:
+
+Female Robotic Countdown 5 to 1
+https://pixabay.com/sound-effects/search/robotic%20countdown/
+
+scary laugh
+https://pixabay.com/sound-effects/search/scary/
+
+scary night ambience
+https://pixabay.com/sound-effects/search/scary/
+
+Breathing fast
+https://pixabay.com/sound-effects/search/run/?pagi=2
+
+Dirt Footsteps 2
+https://pixabay.com/sound-effects/search/dirt/
+
+Running On Dirt
+https://pixabay.com/sound-effects/search/dirt/
+
+Zombie breathing
+https://pixabay.com/sound-effects/search/breathing/?pagi=2
+
+Monster breathing
+https://pixabay.com/sound-effects/search/breathing/?pagi=2
+
+sound effect Breathing Hard
+https://pixabay.com/sound-effects/search/breathing/?pagi=2
+
+Flashlight Clicking On
+https://pixabay.com/sound-effects/search/flashlight/
+
+energy drink effect
+https://pixabay.com/sound-effects/search/drink/
+
+Item Equip
+https://pixabay.com/sound-effects/search/pick%20up/
+
+energy 1
+https://pixabay.com/sound-effects/search/sad%20pick%20up/?duration=0-30
+
+Wood Effect
+https://pixabay.com/sound-effects/search/wood%20block/?duration=0-30
+
 What I changed
 
 I removed the old photo-taking system because it no longer matched the direction of the project. This included deleting the photo system, the old photo actions, and the old win condition where players had to take pictures and place them. The game is now focused on surviving, tagging, collecting items, building defenses, and using role-based abilities.
