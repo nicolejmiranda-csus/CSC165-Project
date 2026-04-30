@@ -4,6 +4,7 @@ import java.awt.Cursor;
 import java.awt.Robot;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.UUID;
 
 import com.jogamp.opengl.awt.GLCanvas;
 
@@ -20,13 +21,8 @@ public class MyGameState {
 
     double lastFrameTime, currFrameTime, elapsedTime;
 
-    boolean lost = false;
-    boolean won = false;
-    int score = 0;
-
     final int maxHealth = 100;
     int health = 100;
-    final int pyramidDamage = 25;
     final int potionHealAmount = 35;
 
     final float itemPickupRange = 1.25f;
@@ -35,6 +31,7 @@ public class MyGameState {
 
     boolean hasFlashlight = false;
     boolean hasPotion = false;
+    boolean flashlightOn = false;
     boolean potionUsed = false;
     int equippedItem = GameConstants.ITEM_NONE;
 
@@ -42,24 +39,20 @@ public class MyGameState {
     String eventMsg = "";
     double eventHold = 0.0;
 
-    final float walkSpeed = 4.0f;
-    final float runSpeed = 8.0f;
     float runHoldTime = 0.0f;
-    final float homeRange = 6.0f;
 
     float overX = 0f, overZ = 0f, overY = 35f;
     float padMove = 0.0f, padStrafe = 0.0f;
 
     boolean healthPotionSnappedToTerrain = false;
     boolean flashlightSnappedToTerrain = false;
-    final float flashlightLift = 0.08f;
-    final float potionLift = 0.12f;
+    final float flashlightLift = 0.10f;
+    final float potionLift = 0.18f;
     final float flashlightBeamForwardOffset = 0.18f;
     final float flashlightBeamLift = 0.03f;
 
     boolean onGround = true;
     float yVel = 0.0f;
-    final boolean[] iconCollected = new boolean[3];
 
     CameraOrbit3D orbitCam;
     float orbitAzimuthDeg = 180.0f;
@@ -86,6 +79,47 @@ public class MyGameState {
     int buildRoofDir = 0;
     final ArrayList<GameObject> placedWalls = new ArrayList<>();
     final HashMap<String, GameObject> wallMap = new HashMap<>();
+
+    boolean physicsVisualizationEnabled = false;
+    boolean physicsReady = false;
+
+    boolean zombieRoundActive = false;
+    boolean zombieIntermissionStarted = false;
+    double zombieIntermissionTime = 30.0;
+    double zombieIntermissionRemaining = 30.0;
+    double survivalRoundDuration = 300.0;
+    double survivalTimeRemaining = 300.0;
+    double postRoundRestartTimer = 0.0;
+    boolean matchHumanWon = false;
+    boolean matchZombieWon = false;
+    boolean localPlayerZombie = false;
+    final UUID offlineLocalId = UUID.nameUUIDFromBytes("offline-local-player".getBytes());
+    final HashMap<UUID, Boolean> remoteZombieStates = new HashMap<>();
+    final HashMap<UUID, Boolean> remoteInvisibleStates = new HashMap<>();
+    final HashMap<UUID, Integer> remoteHealthStates = new HashMap<>();
+    final HashMap<UUID, String> remoteAnimationStates = new HashMap<>();
+
+    int dashCharges = 0;
+    int rockCharges = 0;
+    final int maxRockCharges = 3;
+    int babyZombieCharges = 0;
+    final int maxBabyZombieCharges = 2;
+    int invisCharges = 0;
+    int buildMaterials = 0;
+    double invisTimer = 0.0;
+    double slowTimer = 0.0;
+    double projectileCooldown = 0.0;
+    double buildAttackCooldown = 0.0;
+    final double invisDuration = 5.0;
+    final double slowDuration = 3.0;
+    final double projectileCooldownTime = 0.75;
+    final double buildAttackCooldownTime = 0.55;
+    final float humanWalkSpeed = 4.2f;
+    final float humanRunSpeed = 8.0f;
+    final float zombieWalkSpeed = 4.65f;
+    final float zombieRunSpeed = 8.8f;
+    final float slowedSpeedMultiplier = 0.45f;
+    final float dashDistance = 7.0f;
 
     Robot robot;
     boolean mouseModeInitiated = false;
