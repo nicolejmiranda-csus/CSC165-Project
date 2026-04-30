@@ -38,4 +38,22 @@ public class MyGameVisualSystem {
         MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(false);
         game.hudSystem.showEvent("SKYBOX OFF", 1.0);
     }
+
+    public void randomizeRoundSkybox(java.util.UUID roundZombieId, long roundToken) {
+        long seed = roundToken == 0L ? System.currentTimeMillis() : roundToken;
+        if (roundZombieId != null) {
+            seed ^= roundZombieId.getMostSignificantBits();
+            seed = Long.rotateLeft(seed, 17) ^ roundZombieId.getLeastSignificantBits();
+        }
+        int choice = (int) Math.floorMod(seed, 3);
+        if (choice == 0) {
+            MyGame.getEngine().getSceneGraph().setActiveSkyBoxTexture(game.assets.sky04);
+            MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(true);
+        } else if (choice == 1) {
+            MyGame.getEngine().getSceneGraph().setActiveSkyBoxTexture(game.assets.sky15Night);
+            MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(true);
+        } else {
+            MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(false);
+        }
+    }
 }

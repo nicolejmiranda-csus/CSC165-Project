@@ -20,6 +20,7 @@ public class MyGameCameraSystem {
         applyCameraModeOffset();
         MyGame.getEngine().getRenderSystem().addViewport("OVER", GameConstants.OVER_BOTTOM, GameConstants.OVER_LEFT, GameConstants.OVER_W, GameConstants.OVER_H);
         setOverheadCamera(MyGame.getEngine().getRenderSystem().getViewport("OVER").getCamera());
+        MyGame.getEngine().getRenderSystem().getViewport("OVER").setEnabled(false);
     }
 
     public void setOverheadCamera(Camera cam) {
@@ -44,7 +45,7 @@ public class MyGameCameraSystem {
 
     public void toggleFullMap() {
         game.state.fullMapMode = !game.state.fullMapMode;
-        MyGame.getEngine().getRenderSystem().getViewport("OVER").setEnabled(!game.state.fullMapMode);
+        MyGame.getEngine().getRenderSystem().getViewport("OVER").setEnabled(false);
         game.hudSystem.showEvent(game.state.fullMapMode ? "MAP OPEN" : "MAP CLOSED", 1.0);
     }
 
@@ -106,7 +107,7 @@ public class MyGameCameraSystem {
     }
 
     public void doElevate(float input, float time) {
-        if (game.state.lost || game.state.won || game.state.orbitCam == null) return;
+        if (game.state.orbitCam == null) return;
         game.state.orbitElevationDeg += input * 70.0f * time;
         if (game.state.orbitElevationDeg < game.state.minOrbitElevationDeg) game.state.orbitElevationDeg = game.state.minOrbitElevationDeg;
         if (game.state.orbitElevationDeg > game.state.maxOrbitElevationDeg) game.state.orbitElevationDeg = game.state.maxOrbitElevationDeg;
@@ -139,7 +140,7 @@ public class MyGameCameraSystem {
         }
         if (game.state.cameraMode == 3) {
             Vector3f avatarLoc = game.assets.avatar.getWorldLocation();
-            Vector3f forward = new Vector3f(game.photoSystem.avatarForward()).normalize();
+            Vector3f forward = new Vector3f(game.avatarForward()).normalize();
             float pitchDeg = 15.0f - game.state.orbitElevationDeg;
             float pitchRad = (float) Math.toRadians(pitchDeg);
             float horiz = (float) Math.cos(pitchRad);
