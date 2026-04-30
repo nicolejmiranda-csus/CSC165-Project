@@ -12,7 +12,15 @@ public class MyGameBuildSystem {
     }
 
     public void toggleBuildMode() {
-        if (game.state.lost || game.state.won) return;
+        if (game.isMatchOver()) return;
+        if (game.state.localPlayerZombie) {
+            game.hudSystem.showEvent("ZOMBIES CANNOT BUILD", 1.0);
+            return;
+        }
+        if (game.state.buildMaterials <= 0 && !game.state.buildMode) {
+            game.hudSystem.showEvent("PICK UP BUILD MATERIALS FIRST", 1.2);
+            return;
+        }
         game.state.buildMode = !game.state.buildMode;
         game.hudSystem.showEvent(game.state.buildMode ? "BUILD MODE ON" : "BUILD MODE OFF", 1.0);
     }
@@ -44,12 +52,13 @@ public class MyGameBuildSystem {
     }
 
     public void switchBuildPiece() {
+        if (!game.state.buildMode) return;
         game.state.buildPieceType = (game.state.buildPieceType + 1) % 2;
         game.hudSystem.showEvent(game.state.buildPieceType == 0 ? "BUILD PIECE: WALL" : "BUILD PIECE: ROOF", 0.8);
     }
 
     public void updateBuildPreview() {
-        if (!game.state.buildMode || game.state.lost || game.state.won) {
+        if (!game.state.buildMode || game.isMatchOver()) {
             game.assets.buildPreview.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
             return;
         }
@@ -61,7 +70,15 @@ public class MyGameBuildSystem {
     }
 
     public void placeBuildWall() {
-        if (!game.state.buildMode || game.state.lost || game.state.won) return;
+        if (!game.state.buildMode || game.isMatchOver()) return;
+        if (game.state.localPlayerZombie) {
+            game.hudSystem.showEvent("ZOMBIES CANNOT BUILD", 1.0);
+            return;
+        }
+        if (game.state.buildMaterials <= 0) {
+            game.hudSystem.showEvent("NO BUILD MATERIALS", 1.0);
+            return;
+        }
         Vector3f p = getBuildPiecePosition();
         String key = buildPieceKey(p);
         if (game.state.wallMap.containsKey(key)) {
@@ -76,12 +93,15 @@ public class MyGameBuildSystem {
         piece.getRenderStates().hasLighting(true);
         game.state.placedWalls.add(piece);
         game.state.wallMap.put(key, piece);
+        game.state.buildMaterials--;
+        game.physicsSystem.registerBuildPiece(piece, key, game.state.buildPieceType, game.state.buildModeType, game.state.buildRoofDir, p);
         if (game.state.protClient != null && game.state.isClientConnected) game.state.protClient.sendBuildMessage(game.state.buildPieceType, game.state.buildModeType, game.state.buildRoofDir, p);
+        game.soundSystem.playBuildPlace(p);
         game.hudSystem.showEvent(game.state.buildPieceType == 0 ? "WALL PLACED" : "ROOF PLACED", 0.8);
     }
 
     public void removeBuildWall() {
-        if (!game.state.buildMode || game.state.lost || game.state.won) return;
+        if (!game.state.buildMode || game.isMatchOver()) return;
         Vector3f p = getBuildPiecePosition();
         String key = buildPieceKey(p);
         GameObject piece = game.state.wallMap.get(key);
@@ -89,10 +109,17 @@ public class MyGameBuildSystem {
             game.hudSystem.showEvent("NO PIECE THERE", 0.8);
             return;
         }
+        destroyBuildPiece(key, game.state.buildPieceType, game.state.buildModeType, game.state.buildRoofDir, p, true);
+    }
+
+    public void destroyBuildPiece(String key, int pieceType, int modeType, int roofDir, Vector3f p, boolean broadcast) {
+        GameObject piece = game.state.wallMap.get(key);
+        if (piece == null) return;
         piece.getRenderStates().disableRendering();
         game.state.placedWalls.remove(piece);
         game.state.wallMap.remove(key);
-        if (game.state.protClient != null && game.state.isClientConnected) game.state.protClient.sendRemoveBuildMessage(game.state.buildPieceType, game.state.buildModeType, game.state.buildRoofDir, p);
+        game.physicsSystem.removeBuildPieceCollider(key);
+        if (broadcast && game.state.protClient != null && game.state.isClientConnected) game.state.protClient.sendRemoveBuildMessage(pieceType, modeType, roofDir, p);
         game.hudSystem.showEvent("PIECE REMOVED", 0.8);
     }
 
@@ -114,16 +141,13 @@ public class MyGameBuildSystem {
         game.state.buildRoofDir = oldRoof;
         game.state.placedWalls.add(piece);
         game.state.wallMap.put(key, piece);
+        game.physicsSystem.registerBuildPiece(piece, key, pieceType, modeType, roofDir, p);
+        game.soundSystem.playBuildPlace(p);
     }
 
     public void applyRemoteRemoveBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
         String key = pieceType == 0 ? String.format("%.2f,%.2f,%.2f,W,%d", p.x, p.y, p.z, modeType) : String.format("%.2f,%.2f,%.2f,R,%d", p.x, p.y, p.z, roofDir);
-        GameObject piece = game.state.wallMap.get(key);
-        if (piece != null) {
-            piece.getRenderStates().disableRendering();
-            game.state.placedWalls.remove(piece);
-            game.state.wallMap.remove(key);
-        }
+        destroyBuildPiece(key, pieceType, modeType, roofDir, p, false);
     }
 
     private Matrix4f getBuildPieceRotation() {
@@ -151,7 +175,7 @@ public class MyGameBuildSystem {
 
     private Vector3f getBuildPiecePosition() {
         Vector3f pos = game.assets.avatar.getWorldLocation();
-        Vector3f fwd = game.photoSystem.avatarForward();
+        Vector3f fwd = game.avatarForward();
         fwd.y = 0f;
         if (fwd.lengthSquared() < 0.0001f) fwd.set(0f, 0f, -1f);
         fwd.normalize();
@@ -190,7 +214,7 @@ public class MyGameBuildSystem {
             float roofLift = game.state.buildGrid * 0.5f;
             x = snapToCellCenter(t.x, game.state.buildSnap);
             z = snapToCellCenter(t.z, game.state.buildSnap);
-            y = game.state.buildHeightLevel * game.state.buildGrid + game.state.buildGrid + roofLift;
+            y = game.state.buildHeightLevel * game.state.buildGrid + roofLift;
             switch (game.state.buildRoofDir) {
                 case 0: x += roofInset; break;
                 case 1: x -= roofInset; break;
