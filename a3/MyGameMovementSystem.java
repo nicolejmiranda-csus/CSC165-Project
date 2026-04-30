@@ -12,10 +12,20 @@ public class MyGameMovementSystem {
     public void setPadMove(float v) { game.state.padMove = v; }
     public void setPadStrafe(float v) { game.state.padStrafe = v; }
     public void triggerRun() { game.state.runHoldTime = 0.15f; }
-    public float getCurrentMoveSpeed() { return game.state.runHoldTime > 0.0f ? game.state.runSpeed : game.state.walkSpeed; }
-    public float getGroundHeight(float x, float z) { return game.assets.terrain.getHeight(x, z); }
+    public float getCurrentMoveSpeed() {
+        float speed;
+        if (game.state.localPlayerZombie) speed = game.state.runHoldTime > 0.0f ? game.state.zombieRunSpeed : game.state.zombieWalkSpeed;
+        else speed = game.state.runHoldTime > 0.0f ? game.state.humanRunSpeed : game.state.humanWalkSpeed;
+        if (game.state.slowTimer > 0.0) speed *= game.state.slowedSpeedMultiplier;
+        return speed;
+    }
+    public float getGroundHeight(float x, float z) {
+        Vector3f loc = game.assets.avatar == null ? new Vector3f() : game.assets.avatar.getWorldLocation();
+        return game.physicsSystem.getWalkableGroundHeight(x, z, loc.y);
+    }
 
     public void processPlayerInput() {
+        game.animationSystem.beginInputFrame();
         game.state.padMove = 0.0f;
         game.state.padStrafe = 0.0f;
         game.state.im.update((float) game.state.elapsedTime);
@@ -39,18 +49,17 @@ public class MyGameMovementSystem {
     }
 
     public void doMove(float input, float time) {
-        if (game.state.lost || game.state.won) return;
+        game.animationSystem.recordMovement();
         float dist = getCurrentMoveSpeed() * input * time;
         Vector3f pos = game.assets.avatar.getWorldLocation();
-        Vector3f fwd = game.photoSystem.avatarForward();
+        Vector3f fwd = game.avatarForward();
         Vector3f newPos = new Vector3f(pos).add(new Vector3f(fwd).mul(dist));
         newPos.y = game.state.onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
-        game.assets.avatar.setLocalLocation(newPos);
-        game.networking.sendPlayerTransform();
+        if (game.physicsSystem.tryMoveLocalPlayer(newPos)) game.networking.sendPlayerTransform();
     }
 
     public void doStrafe(float dir, float time) {
-        if (game.state.lost || game.state.won) return;
+        game.animationSystem.recordMovement();
         float dist = getCurrentMoveSpeed() * dir * time;
         Vector3f pos = game.assets.avatar.getWorldLocation();
         Vector3f rt = new Vector3f(game.assets.avatar.getWorldRightVector()).normalize();
@@ -59,12 +68,10 @@ public class MyGameMovementSystem {
         right.normalize();
         Vector3f newPos = new Vector3f(pos).add(right.mul(dist));
         newPos.y = game.state.onGround ? getGroundHeight(newPos.x, newPos.z) : pos.y;
-        game.assets.avatar.setLocalLocation(newPos);
-        game.networking.sendPlayerTransform();
+        if (game.physicsSystem.tryMoveLocalPlayer(newPos)) game.networking.sendPlayerTransform();
     }
 
     public void doYaw(float input, float time) {
-        if (game.state.lost || game.state.won) return;
         float ang = 1.6f * input * time;
         game.assets.avatar.globalYaw(ang);
         game.state.playerYaw += (float) Math.toDegrees(ang);
@@ -72,7 +79,7 @@ public class MyGameMovementSystem {
     }
 
     public void doJump() {
-        if (game.state.lost || game.state.won || !game.state.onGround) return;
+        if (!game.state.onGround) return;
         game.state.onGround = false;
         game.state.yVel = 7.5f;
         game.networking.sendPlayerTransform();
@@ -99,7 +106,7 @@ public class MyGameMovementSystem {
             game.state.yVel = 0.0f;
             game.state.onGround = true;
         }
-        game.assets.avatar.setLocalLocation(new Vector3f(pos.x, newY, pos.z));
+        game.physicsSystem.tryMoveLocalPlayer(new Vector3f(pos.x, newY, pos.z));
         game.networking.sendPlayerTransform();
     }
 }
