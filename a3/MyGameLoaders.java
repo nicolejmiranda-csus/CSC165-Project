@@ -37,7 +37,7 @@ public class MyGameLoaders {
             a.playerModel2GhostAnimatedS[i].loadAnimation("RUN", "playerModel2_Run.rka");
             a.playerModel2GhostAnimatedS[i].loadAnimation("WALK", "playerModel2_Walk.rka");
         }
-        a.playerModel2S = new ImportedModel("playerModel.obj");
+        a.playerModel2S = new ImportedModel("playerModel2.obj");
 
         a.flashlightS = new ImportedModel("flashlight.obj");
         a.tableS = new ImportedModel("table.obj");
@@ -86,7 +86,8 @@ public class MyGameLoaders {
         MyGameAssets a = game.assets;
         a.playerModel1Tx = new TextureImage("playerModel1.jpg");
         a.zombiePlayerModel1Tx = new TextureImage("ZombiePlayerModel1.jpg");
-        a.playerModel2Tx = new TextureImage("playerModel.png");
+        a.playerModel2Tx = new TextureImage("playerModel2.png");
+        a.zombiePlayerModel2Tx = new TextureImage("ZombiePlayerModel2.png");
         a.grassTx = new TextureImage("grass2.png");
         a.homeTx = new TextureImage("brick1.jpg");
         a.heightMaptx = new TextureImage("heightmap.png");

@@ -24,7 +24,7 @@ public class MyGameAssets {
     String[] sceneryTreeModelFiles;
 
     // Textures
-    TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, healthPotionTx;
+    TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, zombiePlayerModel2Tx, healthPotionTx;
     TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx, dolphinTx;
     TextureImage woodBlockTx, rockTx, hoodTx, babyZombieTx;
     TextureImage rockTx2, leafTx, deadOakTreeTx, deadSpruceTreeTx, oakTreeTx, spruceTreeTx, treeWoodTx;
