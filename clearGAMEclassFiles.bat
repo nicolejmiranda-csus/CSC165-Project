@@ -1,2 +1,9 @@
 del .\a3\*.class
-del .\Server\*.class
+del .\a3\actions\*.class
+del .\a3\actions\build\*.class
+del .\a3\actions\camera\*.class
+del .\a3\actions\equipables\*.class
+del .\a3\actions\interaction\*.class
+del .\a3\actions\movement\*.class
+del .\a3\networking\*.class
+del .\a3\server\*.class

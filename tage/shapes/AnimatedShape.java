@@ -57,6 +57,9 @@ public final class AnimatedShape extends ObjShape
 	private List<Float> boneRestRotationsList = new ArrayList<>();
 	private List<Float> boneRestLocationsList = new ArrayList<>();
 	private List<Integer> boneParentsList = new ArrayList<>();
+	private List<Float> boneInverseBindMatricesList = new ArrayList<>();
+	private tage.rml.Matrix4[] boneInverseBindMatrices;
+	private boolean hasMatrixBindPose = false;
 
 	// animation data
 	private HashMap<String, Animation> animationsList = new HashMap<>();
@@ -248,6 +251,7 @@ public final class AnimatedShape extends ObjShape
 			}
 
 			// Read each bone
+			int matrixBindPoseBoneCount = 0;
 			for (int i = 0; i < boneCount && ((line = br.readLine()) != null); i++)
 			{	String[] bone = line.split("\t");
 
@@ -270,6 +274,24 @@ public final class AnimatedShape extends ObjShape
 
 				// Last int is the bone's parent's index
 				boneParentsList.add(Integer.parseInt(bone[9]));
+
+				// Optional MATRIX4 exporter extension:
+				// columns 10..25 store this bone's inverse bind matrix in model space.
+				if (bone.length >= 26)
+				{	for (int j = 10; j < 26; j++)
+						boneInverseBindMatricesList.add(Float.parseFloat(bone[j]));
+					matrixBindPoseBoneCount++;
+				}
+			}
+			hasMatrixBindPose = matrixBindPoseBoneCount == boneCount;
+			if (hasMatrixBindPose)
+			{	boneInverseBindMatrices = new tage.rml.Matrix4[boneCount];
+				for (int i = 0; i < boneCount; i++)
+				{	float[] values = new float[16];
+					for (int j = 0; j < 16; j++)
+						values[j] = boneInverseBindMatricesList.get(i * 16 + j);
+					boneInverseBindMatrices[i] = tage.rml.Matrix4f.createFrom(values);
+				}
 			}
 		}
 		catch (IOException e)
@@ -290,7 +312,11 @@ public final class AnimatedShape extends ObjShape
 	/** Specifies a string name for an animation, and the file containing the animation (with extension "rka"). */
 	public void loadAnimation(String animationName, String animationPath)
 	{	int frameCount = 0;
+		int animationBoneCount = 0;
+		int skeletonBoneCount = skel.getBoneCount();
 		List<List<Float>> framesList = new ArrayList<List<Float>>();
+		boolean matrixFrames = false;
+		int valuesPerBone = 10;
 		String line;
 		Animation anim = new Animation();
 		try
@@ -299,20 +325,29 @@ public final class AnimatedShape extends ObjShape
 
 			if ((line = br.readLine()) != null)
 			{	String[] header = line.split("\t");
-				boneCount = Integer.parseInt(header[0]);
+				animationBoneCount = Integer.parseInt(header[0]);
 				frameCount = Integer.parseInt(header[1]);
+				matrixFrames = header.length >= 3 && header[2].equalsIgnoreCase("MATRIX4");
+				valuesPerBone = matrixFrames ? 16 : 10;
+				if (animationBoneCount != skeletonBoneCount)
+				{	System.out.println("WARNING: skipped animation \"" + animationName + "\" from file \""
+						+ animationPath + "\" because it has " + animationBoneCount
+						+ " bones but the loaded skeleton has " + skeletonBoneCount + ".");
+					return;
+				}
+				boneCount = animationBoneCount;
 			}
 			// Iterate through each frame
 			for (int i = 0; i < frameCount; i++)
 			{	framesList.add( new ArrayList<Float>() );
 
 				// Iterate through each bone
-				for (int j = 0; j < boneCount && ((line = br.readLine()) != null); j++)
+				for (int j = 0; j < animationBoneCount && ((line = br.readLine()) != null); j++)
 				{	String[] boneTransform = line.split("\t");
 
 					// In the animation file, each line is a single bone's frame's transform.
-					// Add each of the 10 bone transform values:
-					for (int k = 0; k < 10; k++)
+					// Legacy animations use 10 values. MATRIX4 animations use 16 matrix values.
+					for (int k = 0; k < valuesPerBone; k++)
 						framesList.get(i).add(Float.parseFloat(boneTransform[k]));
 				}
 			}
@@ -321,8 +356,9 @@ public final class AnimatedShape extends ObjShape
 		{	throw new RuntimeException(e);
 		}
 
-		anim.setBoneCount(boneCount);
+		anim.setBoneCount(animationBoneCount);
 		anim.setFrameCount(frameCount);
+		anim.setMatrixFrames(matrixFrames);
 		for (List<Float> frame : framesList) { anim.appendFrame(toFloatBuffer(frame)); }
 
 		animationsList.put(animationName, anim);
@@ -351,7 +387,16 @@ public final class AnimatedShape extends ObjShape
 	// This method calculates the skinning matrices for the current animation pose.
 
 	private void updateCurrentPoseMatrices()
-	{	for (int i = 0; i < boneCount; i++)
+	{	if (curAnimation != null && curAnimation.usesMatrixFrames() && hasMatrixBindPose)
+		{	for (int i = 0; i < boneCount; i++)
+			{	tage.rml.Matrix4 poseMatrix = curAnimation.getFrameBoneMatrix(curAnimFrame, i);
+				curSkinMatrices[i] = poseMatrix.mult(boneInverseBindMatrices[i]);
+				curSkinMatricesIT[i] = curSkinMatrices[i].inverse().transpose().toMatrix3();
+			}
+			return;
+		}
+
+		for (int i = 0; i < boneCount; i++)
 		{	tage.rml.Matrix4 mat;
 
 			// 1) get inverse of bone's local-space to model space
@@ -654,6 +699,9 @@ public final class AnimatedShape extends ObjShape
 		boneRestRotationsList.clear();
 		boneRestLocationsList.clear();
 		boneParentsList.clear();
+		boneInverseBindMatricesList.clear();
+		boneInverseBindMatrices = null;
+		hasMatrixBindPose = false;
 	}
 
 	// ------------- ACCESSORS -----------------

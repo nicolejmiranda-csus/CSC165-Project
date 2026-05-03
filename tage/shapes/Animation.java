@@ -28,6 +28,7 @@ public final class Animation
 
 	// Stores the number of frames in the animation
 	private int frameCount;
+	private boolean matrixFrames = false;
 
 	// This framesList holds a list of FloatBuffers.
 	// Each FloatBuffer holds the transformation data of all bones for that frame.
@@ -39,6 +40,8 @@ public final class Animation
 	protected int getBoneCount() { return boneCount; }
 	protected void setFrameCount(int frameCount) { this.frameCount = frameCount; }
 	protected int getFrameCount() { return frameCount; }
+	protected void setMatrixFrames(boolean matrixFrames) { this.matrixFrames = matrixFrames; }
+	protected boolean usesMatrixFrames() { return matrixFrames; }
 	protected FloatBuffer getFrame(int frameIndex) { return framesList.get(frameIndex); }
 
 	protected void setFrame(int frameIndex, FloatBuffer frame)
@@ -48,6 +51,19 @@ public final class Animation
 	}
 
 	protected void appendFrame(FloatBuffer frame) { framesList.add(frame); }
+
+	protected tage.rml.Matrix4 getFrameBoneMatrix(int frameIndex, int boneIndex)
+	{	if(frameIndex >= framesList.size() || frameIndex < 0)
+			throw new IndexOutOfBoundsException();
+		FloatBuffer frame = framesList.get(frameIndex);
+		int offset = boneIndex * 16;
+		if (boneIndex < 0 || offset + 15 >= frame.capacity())
+			throw new IndexOutOfBoundsException();
+		float[] values = new float[16];
+		for (int i = 0; i < 16; i++)
+			values[i] = frame.get(offset + i);
+		return tage.rml.Matrix4f.createFrom(values);
+	}
 
 	protected tage.rml.Vector3 getFrameBoneLoc(int frameIndex, int boneIndex)
 	{	if(frameIndex >= framesList.size() || frameIndex < 0)

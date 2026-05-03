@@ -31,6 +31,7 @@ public class RenderQueue
 
 	protected Vector<GameObject> createStandardQueue()
 	{	queue.clear();
+		transparentQueue.clear();
 		addToQueue(root.getChildrenIterator());
 		
 		// Put all transparent objects at the end of the queue

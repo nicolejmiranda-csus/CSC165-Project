@@ -1,1 +1,1 @@
-javac -Xlint:unchecked a3/*.java Server/*.java
+javac -Xlint:unchecked a3/*.java a3/networking/*.java a3/server/*.java a3/actions/camera/*.java a3/actions/movement/*.java a3/actions/build/*.java a3/actions/equipables/*.java a3/actions/interaction/*.java
