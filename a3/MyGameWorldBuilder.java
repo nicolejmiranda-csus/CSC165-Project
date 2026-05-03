@@ -33,8 +33,9 @@ public class MyGameWorldBuilder {
         MyGameAssets a = game.assets;
         MyGameState s = game.state;
         boolean useAnimatedPlayer1 = !game.isPlayerModel2Selected() && game.canUseAnimatedPlayerModel1();
+        boolean useAnimatedPlayer2 = !game.isPlayerModel1Selected() && game.canUseAnimatedPlayerModel2();
         ObjShape avatarShape = game.isPlayerModel2Selected()
-            ? a.playerModel2S
+            ? (useAnimatedPlayer2 ? a.playerModel2AnimatedS : a.playerModel2S)
             : (useAnimatedPlayer1 ? a.playerModel1AnimatedS : a.playerModel1S);
         TextureImage avatarTexture = game.isPlayerModel2Selected() ? a.playerModel2Tx : a.playerModel1Tx;
         a.avatar = new GameObject(GameObject.root(), avatarShape, avatarTexture);

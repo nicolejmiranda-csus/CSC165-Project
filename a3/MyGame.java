@@ -482,12 +482,20 @@ public class MyGame extends VariableFrameRateGame {
 			state.selectedAvatarType = type;
 	}
 
+	boolean isPlayerModel1Selected() {
+		return "playerModel1".equals(state.selectedAvatarType);
+	}
+
 	boolean isPlayerModel2Selected() {
 		return "playerModel2".equals(state.selectedAvatarType);
 	}
 
 	boolean canUseAnimatedPlayerModel1() {
 		return assets.playerModel1AnimatedS != null;
+	}
+
+	boolean canUseAnimatedPlayerModel2() {
+		return assets.playerModel2AnimatedS != null;
 	}
 
 	public ObjShape getGhostShape(String avatarType) {
@@ -499,7 +507,16 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	public ObjShape createGhostShape(UUID id, String avatarType) {
-		if ("playerModel2".equals(avatarType)) return assets.playerModel2S;
+		if ("playerModel2".equals(avatarType)) {
+			if (assets.playerModel2GhostAnimatedS != null) {
+				for (AnimatedShape shape : assets.playerModel2GhostAnimatedS) {
+					if (assignedGhostShapes.containsValue(shape)) continue;
+					if (id != null) assignedGhostShapes.put(id, shape);
+					return shape;
+				}
+			}
+   		 	return assets.playerModel2S; // fallback if pool exhausted
+		}
 		if (id != null && assignedGhostShapes.containsKey(id)) return assignedGhostShapes.get(id);
 		if (assets.playerModel1GhostAnimatedS != null) {
 			for (AnimatedShape shape : assets.playerModel1GhostAnimatedS) {

@@ -16,13 +16,15 @@ public class MyGameAssets {
     TerrainPlane terrainShape;
     AnimatedShape playerModel1AnimatedS;
     AnimatedShape[] playerModel1GhostAnimatedS;
+    AnimatedShape playerModel2AnimatedS;
+    AnimatedShape[] playerModel2GhostAnimatedS;
     ObjShape playerModel1S, playerModel2S, flashlightS, tableS, healthPotionS, dolphinS;
     ObjShape cubeS, rock2S, lowpolyHoodS, dashPickupS, babyZombieS;
     ObjShape[] sceneryRockS, sceneryTreeS;
     String[] sceneryTreeModelFiles;
 
     // Textures
-    TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, healthPotionTx;
+    TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, zombiePlayerModel2Tx, healthPotionTx;
     TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx, dolphinTx;
     TextureImage woodBlockTx, rockTx, hoodTx, babyZombieTx;
     TextureImage rockTx2, leafTx, deadOakTreeTx, deadSpruceTreeTx, oakTreeTx, spruceTreeTx, treeWoodTx;
