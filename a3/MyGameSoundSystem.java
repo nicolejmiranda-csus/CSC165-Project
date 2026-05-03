@@ -27,6 +27,7 @@ public class MyGameSoundSystem {
     private IAudioManager audioMgr;
     private AudioResource walkResource;
     private AudioResource runResource;
+    private AudioResource zombieSoundsResource;
     private AudioResource pickupResource;
     private AudioResource countdownResource;
     private AudioResource flashlightResource;
@@ -58,6 +59,7 @@ public class MyGameSoundSystem {
             audioMgr = MyGame.getEngine().getAudioManager();
             walkResource = resource("mono_eaglaxle-dirt-footsteps-2-455146.wav");
             runResource = resource("mono_freesound_community-running-on-dirt-87203.wav");
+            zombieSoundsResource = resource("freesound_community-zombie-sounds-95180.wav");
             pickupResource = resource("mono_freesound_community-energy-1-107099.wav");
             countdownResource = resource("mono_freesound_community-female-robotic-countdown-5-to-1-47653.wav");
             flashlightResource = resource("mono_freesound_community-flashlight-clicking-on-105809.wav");
@@ -155,6 +157,14 @@ public class MyGameSoundSystem {
     }
 
     private MyGamePlayerSoundSet createPlayerSoundSet() {
+        if (game.isPlayerModel2Selected()) {
+            return new MyGamePlayerSoundSet(
+                    loop(walkResource, 52, 1.2f, 28f, 1.7f),
+                    loop(runResource, 55, 1.2f, 35f, 1.6f),
+                    loop(zombieSoundsResource, 55, 1.2f, 35f, 1.6f),
+                    loop(girlBreathResource, 58, 1.2f, 30f, 1.5f),
+                    loop(guyBreathResource, 72, 1.2f, 34f, 1.4f));
+        }
         return new MyGamePlayerSoundSet(
                 loop(walkResource, 52, 1.2f, 28f, 1.7f),
                 loop(runResource, 55, 1.2f, 35f, 1.6f),
