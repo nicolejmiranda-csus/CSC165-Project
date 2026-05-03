@@ -211,8 +211,8 @@ public class MyGameSoundSystem {
                 liveIds.add(id);
                 MyGamePlayerSoundSet sounds = remotePlayerSounds.computeIfAbsent(id, key -> createPlayerSoundSet());
                 String anim = game.getRemoteAnimationState(id);
-                boolean running = "RUN".equals(anim);
-                boolean walking = "WALK".equals(anim);
+                boolean running = "RUN".equals(anim) || "ZOMBIE_RUN".equals(anim);
+                boolean walking = "WALK".equals(anim) || "ZOMBIE_WALK".equals(anim);
                 sounds.update(
                         ghost.getWorldLocation(),
                         walking,

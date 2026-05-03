@@ -6,6 +6,8 @@ public class MyGameAnimationSystem {
     private static final String IDLE_ANIM = "IDLE";
     private static final String WALK_ANIM = "WALK";
     private static final String RUN_ANIM = "RUN";
+    private static final String ZOMBIE_WALK_ANIM = "ZOMBIE_WALK";
+    private static final String ZOMBIE_RUN_ANIM = "ZOMBIE_RUN";
     private static final float AVATAR_ANIM_SPEED = 0.5f;
 
     private final MyGame game;
@@ -38,9 +40,14 @@ public class MyGameAnimationSystem {
 
     public void updateLocalAvatarAnimation() {
         AnimatedShape avatarShape = getAnimatedAvatarShape();
+        boolean isZombieModel2 = game.state.localPlayerZombie && game.isPlayerModel2Selected();
         String targetAnimation = IDLE_ANIM;
         if (movedThisFrame) {
-            targetAnimation = runningThisFrame && (avatarShape == null || hasAnimation(avatarShape, RUN_ANIM)) ? RUN_ANIM : WALK_ANIM;
+            if (isZombieModel2) {
+                targetAnimation = runningThisFrame && (avatarShape == null || hasAnimation(avatarShape, ZOMBIE_RUN_ANIM)) ? ZOMBIE_RUN_ANIM : ZOMBIE_WALK_ANIM;
+            } else {
+                targetAnimation = runningThisFrame && (avatarShape == null || hasAnimation(avatarShape, RUN_ANIM)) ? RUN_ANIM : WALK_ANIM;
+            }
         }
 
         if (avatarShape == null) {
