@@ -591,6 +591,7 @@ public class MyGamePhysicsSystem {
         game.state.postRoundRestartTimer = 0.0;
         updateServerRoundTimers();
         resetLocalForIntermission(true);
+        game.worldBuilder.selectRoundHeightMap(null, endEpochMs);
         game.hudSystem.showEvent("INTERMISSION", 1.0);
     }
 
@@ -605,7 +606,7 @@ public class MyGamePhysicsSystem {
         game.state.zombieIntermissionStarted = true;
         game.state.zombieIntermissionRemaining = 0.0;
         game.state.survivalTimeRemaining = secondsUntil(endEpochMs);
-        game.worldBuilder.selectRoundHeightMap(zombieId, endEpochMs);
+        game.worldBuilder.selectRoundHeightMap(null, endEpochMs);
         respawnLocalPlayerAtRandomSpot();
         setLocalZombie(zombieId != null && zombieId.equals(getLocalPlayerId()), false);
         game.visualSystem.randomizeRoundSkybox(zombieId, endEpochMs);
