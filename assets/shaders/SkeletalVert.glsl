@@ -16,8 +16,13 @@ uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
 
-uniform mat4 skin_matrices[128];     // Skinning Matrices (supports up to 128 bones)
-uniform mat3 skin_matrices_IT[128];  // IT of Skinning Matrices (used for transforming vertex normals)
+layout (std430, binding=1) readonly buffer skinMatrixBuffer
+{	mat4 skin_matrices[];
+};
+
+layout (std430, binding=2) readonly buffer skinMatrixITBuffer
+{	mat4 skin_matrices_IT[];
+};
 
 void main()
 {	// Calculating the model-space skinning transformation matrix for the vertex
@@ -36,17 +41,17 @@ void main()
 	// Calculating bone 1's influence
 	index = int(vertex_bone_indices.x);
 	bone1_vert_pos = skin_matrices[index] * skinned_vert_pos;
-	bone1_nor_mat3 = skin_matrices_IT[index];
+	bone1_nor_mat3 = mat3(skin_matrices_IT[index]);
 
 	// Calculating bone 2's influence
 	index = int(vertex_bone_indices.y);
 	bone2_vert_pos = skin_matrices[index] * skinned_vert_pos;
-	bone2_nor_mat3 = skin_matrices_IT[index];
+	bone2_nor_mat3 = mat3(skin_matrices_IT[index]);
 
 	// Calculating bone 3's influence
 	index = int(vertex_bone_indices.z);
 	bone3_vert_pos = skin_matrices[index] * skinned_vert_pos;
-	bone3_nor_mat3 = skin_matrices_IT[index];
+	bone3_nor_mat3 = mat3(skin_matrices_IT[index]);
 
 	// Averaging all bone influences to get final vertex position
 	skinned_vert_pos = bone1_vert_pos * vertex_bone_weights.x
