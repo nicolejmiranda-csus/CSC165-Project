@@ -34,6 +34,7 @@ public class MyGame extends VariableFrameRateGame {
 	final MyGameMovementSystem movementSystem = new MyGameMovementSystem(this);
 	final MyGameAnimationSystem animationSystem = new MyGameAnimationSystem(this);
 	final MyGameSoundSystem soundSystem = new MyGameSoundSystem(this);
+	final MyGameSmilingManSystem smilingManSystem = new MyGameSmilingManSystem(this);
 	final MyGameItemSystem itemSystem = new MyGameItemSystem(this);
 	final MyGameVisualSystem visualSystem = new MyGameVisualSystem(this);
 	final MyGameMouseLookSystem mouseLookSystem = new MyGameMouseLookSystem(this);
@@ -157,6 +158,25 @@ public class MyGame extends VariableFrameRateGame {
 	}
 
 	@Override
+	public float getScreenFlashOpacity() {
+		if (state.blindTimer > 0.0) return Math.min(1.0f, (float) (state.blindTimer / 0.15));
+		if (state.stareWarningTimer > 0.0) return Math.min(0.58f, (float) (state.stareWarningTimer / GameConstants.SMILING_MAN_STARE_WARNING_SECONDS) * 0.58f);
+		return 0.0f;
+	}
+
+	@Override
+	public Vector3f getScreenFlashColor() {
+		if (state.blindTimer > 0.0) return new Vector3f(1.0f, 1.0f, 1.0f);
+		if (state.stareWarningTimer > 0.0) return new Vector3f(0.0f, 0.0f, 0.0f);
+		return new Vector3f(1.0f, 1.0f, 1.0f);
+	}
+
+	@Override
+	public float getScreenFlashVignette() {
+		return state.blindTimer <= 0.0 && state.stareWarningTimer > 0.0 ? 1.0f : 0.0f;
+	}
+
+	@Override
 	public void mouseMoved(MouseEvent e) {
 		mouseLookSystem.mouseMoved(e);
 	}
@@ -221,6 +241,10 @@ public class MyGame extends VariableFrameRateGame {
 		buildSystem.switchBuildPiece();
 	}
 
+	public void cycleBuildMaterial() {
+		buildSystem.cycleBuildMaterial();
+	}
+
 	public void placeBuildWall() {
 		buildSystem.placeBuildWall();
 	}
@@ -281,12 +305,12 @@ public class MyGame extends VariableFrameRateGame {
 		physicsSystem.toggleLocalRoleForTesting();
 	}
 
-	public void applyRemoteBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
-		buildSystem.applyRemoteBuild(pieceType, modeType, roofDir, p);
+	public void applyRemoteBuild(int pieceType, int modeType, int roofDir, int materialType, Vector3f p) {
+		buildSystem.applyRemoteBuild(pieceType, modeType, roofDir, materialType, p);
 	}
 
-	public void applyRemoteRemoveBuild(int pieceType, int modeType, int roofDir, Vector3f p) {
-		buildSystem.applyRemoteRemoveBuild(pieceType, modeType, roofDir, p);
+	public void applyRemoteRemoveBuild(int pieceType, int modeType, int roofDir, int materialType, Vector3f p) {
+		buildSystem.applyRemoteRemoveBuild(pieceType, modeType, roofDir, materialType, p);
 	}
 
 	public void applyRemoteRole(java.util.UUID id, boolean zombie) {
@@ -295,6 +319,11 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void applyRemoteTag(java.util.UUID sourceId, java.util.UUID targetId) {
 		physicsSystem.applyRemoteTag(sourceId, targetId);
+	}
+
+	public void applyHumanLastChanceEscape(java.util.UUID id) {
+		physicsSystem.applyHumanLastChanceEscape(id);
+		smilingManSystem.onHumanLastChanceEscape(id);
 	}
 
 	public void applyRemoteAbility(java.util.UUID sourceId, String ability, boolean active) {
@@ -307,6 +336,10 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void applyRemoteSlow(java.util.UUID sourceId, java.util.UUID targetId, float seconds) {
 		physicsSystem.applyRemoteSlow(sourceId, targetId, seconds);
+	}
+
+	public void applyRemoteBlind(java.util.UUID sourceId, java.util.UUID targetId, float seconds) {
+		itemSystem.applyRemoteBlind(sourceId, targetId, seconds);
 	}
 
 	public void applyServerPickupState(int pickupId, int pickupType, boolean active, float x, float z, long respawnEpochMs) {
@@ -343,6 +376,22 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void applyRemoteHealth(java.util.UUID id, int health) {
 		physicsSystem.applyRemoteHealth(id, health);
+	}
+
+	public void applyRemoteSmilingManState(java.util.UUID sourceId, boolean spawned, Vector3f position, float yaw, String animationName) {
+		smilingManSystem.applyRemoteState(sourceId, spawned, position, yaw, animationName);
+	}
+
+	public void applyRemoteSmilingManState(int index, java.util.UUID sourceId, boolean spawned, Vector3f position, float yaw, String animationName) {
+		smilingManSystem.applyRemoteState(index, sourceId, spawned, position, yaw, animationName);
+	}
+
+	public void applyRemoteSmilingManBlind(java.util.UUID sourceId) {
+		smilingManSystem.applyRemoteBlind(sourceId);
+	}
+
+	public void applyRemoteSmilingManBlind(int index, java.util.UUID sourceId) {
+		smilingManSystem.applyRemoteBlind(index, sourceId);
 	}
 
 	public void applyRemoteAnimation(java.util.UUID id, String animationName) {
@@ -463,6 +512,11 @@ public class MyGame extends VariableFrameRateGame {
 
 	public Vector3f getPlayerPosition() {
 		return assets.avatar.getWorldLocation();
+	}
+
+	public UUID getLocalPlayerId() {
+		if (state.protClient != null) return state.protClient.getID();
+		return state.offlineLocalId;
 	}
 
 	public Vector3f avatarForward() {
