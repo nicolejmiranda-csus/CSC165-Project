@@ -1,5 +1,10 @@
 package a3;
 
+import java.util.UUID;
+
+import a3.networking.GhostAvatar;
+import tage.RenderStates;
+
 public class MyGameVisualSystem {
     private final MyGame game;
 
@@ -37,6 +42,42 @@ public class MyGameVisualSystem {
     public void toggleSkyboxOff() {
         MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(false);
         game.hudSystem.showEvent("SKYBOX OFF", 1.0);
+    }
+
+    public void updateHidingVisuals() {
+        updateLocalHidingVisual();
+        updateRemoteHidingVisuals();
+    }
+
+    private void updateLocalHidingVisual() {
+        if (game.assets.avatar == null) return;
+        RenderStates rs = game.assets.avatar.getRenderStates();
+        if (game.state.localPlayerZombie && game.state.invisTimer > 0.0) {
+            rs.disableRendering();
+            return;
+        }
+        rs.enableRendering();
+        boolean hidden = !game.state.localPlayerZombie && game.worldBuilder.isInsideTableCover(game.assets.avatar.getWorldLocation());
+        rs.isTransparent(hidden);
+        rs.setOpacity(hidden ? 0.34f : 1.0f);
+    }
+
+    private void updateRemoteHidingVisuals() {
+        if (game.state.gm == null) return;
+        for (GhostAvatar ghost : game.getGhostManager().getGhostAvatarsSnapshot()) {
+            UUID id = ghost.getID();
+            boolean zombie = game.state.remoteZombieStates.getOrDefault(id, false);
+            boolean invisible = zombie && game.state.remoteInvisibleStates.getOrDefault(id, false);
+            RenderStates rs = ghost.getRenderStates();
+            if (invisible) {
+                rs.disableRendering();
+                continue;
+            }
+            rs.enableRendering();
+            boolean hidden = !zombie && game.worldBuilder.isInsideTableCover(ghost.getWorldLocation());
+            rs.isTransparent(hidden);
+            rs.setOpacity(hidden ? 0.34f : 1.0f);
+        }
     }
 
     public void randomizeRoundSkybox(java.util.UUID roundZombieId, long roundToken) {

@@ -19,6 +19,7 @@ import org.joml.Vector3f;
 import a3.networking.GhostAvatar;
 import tage.GameObject;
 import tage.RenderStates;
+import tage.TextureImage;
 import tage.physics.PhysicsEngine;
 import tage.physics.PhysicsObject;
 
@@ -32,6 +33,8 @@ public class MyGamePhysicsSystem {
     private static final int PICKUP_TYPE_BABY_ZOMBIE = GameConstants.PICKUP_BABY_ZOMBIE;
     private static final int PICKUP_TYPE_FLASHLIGHT = GameConstants.PICKUP_FLASHLIGHT;
     private static final int PICKUP_TYPE_POTION = GameConstants.PICKUP_POTION;
+    private static final int PICKUP_TYPE_BUILD_METAL = GameConstants.PICKUP_BUILD_METAL;
+    private static final int PICKUP_TYPE_BUILD_GLASS = GameConstants.PICKUP_BUILD_GLASS;
 
     private final MyGame game;
     private PhysicsEngine physicsEngine;
@@ -50,6 +53,7 @@ public class MyGamePhysicsSystem {
     private boolean serverPickupsAuthoritative = false;
     private boolean serverRoundAuthoritative = false;
     private boolean sceneryCollidersReady = false;
+    private boolean staticCoverCollidersReady = false;
     private long serverIntermissionEndEpochMs = 0L;
     private long serverRoundEndEpochMs = 0L;
 
@@ -59,7 +63,7 @@ public class MyGamePhysicsSystem {
     private final float pickupColliderRadius = 0.6f;
     private final float projectileRadius = 0.35f;
     private final float projectileTTL = 5.0f;
-    private final float pickupSpawnRadius = 90.0f;
+    private final float pickupSpawnRadius = GameConstants.WORLD_EDGE_LIMIT - 18.0f;
     private final float pickupMinPlayerDistance = 10.0f;
     private final float pickupMinItemDistance = 8.0f;
     private final float pickupBaseLift = 0.55f;
@@ -132,8 +136,23 @@ public class MyGamePhysicsSystem {
     }
 
     public boolean tryMoveLocalPlayer(Vector3f newPos) {
-        if (isBlockedBySceneryCollider(newPos)) return false;
-        game.assets.avatar.setLocalLocation(new Vector3f(newPos));
+        if (newPos == null) return false;
+        Vector3f clamped = clampToWorldBounds(newPos);
+        if (isBlockedBySceneryCollider(clamped)) {
+            Vector3f current = game.assets.avatar.getWorldLocation();
+            Vector3f xOnly = clampToWorldBounds(new Vector3f(clamped.x, clamped.y, current.z));
+            if (!isBlockedBySceneryCollider(xOnly)) {
+                game.assets.avatar.setLocalLocation(xOnly);
+                return true;
+            }
+            Vector3f zOnly = clampToWorldBounds(new Vector3f(current.x, clamped.y, clamped.z));
+            if (!isBlockedBySceneryCollider(zOnly)) {
+                game.assets.avatar.setLocalLocation(zOnly);
+                return true;
+            }
+            return false;
+        }
+        game.assets.avatar.setLocalLocation(clamped);
         return true;
     }
 
@@ -155,18 +174,103 @@ public class MyGamePhysicsSystem {
         return best;
     }
 
-    public void registerBuildPiece(GameObject piece, String key, int pieceType, int modeType, int roofDir, Vector3f pos) {
+    public float terrainHeightAt(float x, float z) {
+        return terrainHeight(x, z);
+    }
+
+    public Vector3f clampToWorldBounds(Vector3f position) {
+        if (position == null) return new Vector3f();
+        float limit = GameConstants.WORLD_EDGE_LIMIT;
+        return new Vector3f(clamp(position.x, -limit, limit), position.y, clamp(position.z, -limit, limit));
+    }
+
+    public boolean isNpcBlockedByWorld(Vector3f npcFeet, float radius) {
+        if (npcFeet == null) return true;
+        if (Math.abs(npcFeet.x) > GameConstants.WORLD_EDGE_LIMIT || Math.abs(npcFeet.z) > GameConstants.WORLD_EDGE_LIMIT) return true;
+        if (isNpcBlockedByScenery(npcFeet, radius)) return true;
+        return findNpcBuildBlock(npcFeet, radius) != null;
+    }
+
+    public MyGameBuildRecord findNpcBuildBlock(Vector3f npcFeet, float radius) {
+        if (npcFeet == null) return null;
+        MyGameBuildRecord best = null;
+        float bestDistSq = Float.MAX_VALUE;
+        for (MyGameBuildRecord record : buildRecords.values()) {
+            if (record == null || record.object == null || !record.blocksPlayer) continue;
+            if (!isNpcInsideBuildPieceFootprint(record, npcFeet, radius)) continue;
+            float dx = npcFeet.x - record.position.x;
+            float dz = npcFeet.z - record.position.z;
+            float distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                best = record;
+            }
+        }
+        return best;
+    }
+
+    public boolean isLineBlockedByGlassBuild(Vector3f from, Vector3f to) {
+        if (from == null || to == null) return false;
+        for (MyGameBuildRecord record : buildRecords.values()) {
+            if (record == null || record.object == null) continue;
+            if (record.materialType != GameConstants.BUILD_MATERIAL_GLASS) continue;
+            if (lineIntersectsBuildPlane(record, from, to, 0.20f)) return true;
+        }
+        return false;
+    }
+
+    public boolean isLineBlockedByBuildSight(Vector3f from, Vector3f to) {
+        if (from == null || to == null) return false;
+        for (MyGameBuildRecord record : buildRecords.values()) {
+            if (record == null || record.object == null || !record.blocksPlayer) continue;
+            if (lineIntersectsBuildPlane(record, from, to, 0.20f)) return true;
+        }
+        return false;
+    }
+
+    private boolean lineIntersectsBuildPlane(MyGameBuildRecord record, Vector3f from, Vector3f to, float margin) {
+        Matrix4f invRot = new Matrix4f(record.object.getWorldRotation()).invert();
+        Vector3f a = new Vector3f(from).sub(record.position);
+        Vector3f b = new Vector3f(to).sub(record.position);
+        a.mulDirection(invRot);
+        b.mulDirection(invRot);
+
+        float denom = a.z - b.z;
+        if (Math.abs(denom) < 0.0001f) return Math.abs(a.z) <= 0.30f || Math.abs(b.z) <= 0.30f;
+        float t = a.z / denom;
+        if (t < 0f || t > 1f) return false;
+
+        float x = a.x + (b.x - a.x) * t;
+        float y = a.y + (b.y - a.y) * t;
+        Matrix4f scale = record.object.getWorldScale();
+        float halfX = Math.abs(scale.m00()) + margin;
+        float halfY = Math.abs(scale.m11()) + margin;
+        return Math.abs(x) <= halfX && Math.abs(y) <= halfY;
+    }
+
+    public void hitBuildPieceFromSmilingMan(MyGameBuildRecord record) {
+        if (record == null || !buildRecords.containsKey(record.key)) return;
+        record.hits++;
+        if (record.hits >= record.hitsRequired) {
+            game.buildSystem.destroyBuildPiece(record.key, record.pieceType, record.modeType, record.roofDir, record.materialType, record.position, true);
+            game.hudSystem.showEvent("SMILING MAN BROKE A BUILD", 1.0);
+        } else {
+            game.hudSystem.showEvent("SMILING MAN HIT " + record.hits + "/" + record.hitsRequired, 0.8);
+        }
+    }
+
+    public void registerBuildPiece(GameObject piece, String key, int pieceType, int modeType, int roofDir, int materialType, Vector3f pos) {
         if (!game.state.physicsReady || physicsEngine == null || piece == null || key == null) return;
         removeBuildPieceCollider(key);
 
         Quaternionf rot = new Quaternionf();
         piece.getWorldRotation().getNormalizedRotation(rot);
-        float[] size = getBuildPieceColliderSize(pieceType, modeType);
+        float[] size = getBuildPieceColliderSize(piece, pieceType, modeType);
         PhysicsObject body = MyGame.getEngine().getSceneGraph().addPhysicsBox(0f, new Vector3f(pos), rot, size);
         body.setFriction(1.0f);
         body.setBounciness(0.0f);
 
-        MyGameBuildRecord record = new MyGameBuildRecord(key, piece, body, pieceType, modeType, roofDir, pos);
+        MyGameBuildRecord record = new MyGameBuildRecord(key, piece, body, pieceType, modeType, roofDir, materialType, pos);
         buildRecords.put(key, record);
         bodyInfo.put(body, MyGameBodyInfo.buildPiece(record));
     }
@@ -180,12 +284,53 @@ public class MyGamePhysicsSystem {
 
     public void syncSceneryColliders() {
         if (!game.state.physicsReady || physicsEngine == null) return;
-        if (sceneryCollidersReady) return;
-        int before = sceneryRecords.size();
-        for (GameObject rock : game.assets.sceneryRocks) syncSceneryCollider(rock, false);
-        for (GameObject tree : game.assets.sceneryTrees) syncSceneryCollider(tree, true);
-        sceneryCollidersReady = true;
-        System.out.println("created scenery physics colliders: " + (sceneryRecords.size() - before));
+        if (!sceneryCollidersReady) {
+            int before = sceneryRecords.size();
+            for (GameObject rock : game.assets.sceneryRocks) syncSceneryCollider(rock, false);
+            for (GameObject tree : game.assets.sceneryTrees) syncSceneryCollider(tree, true);
+            sceneryCollidersReady = true;
+            System.out.println("created scenery physics colliders: " + (sceneryRecords.size() - before));
+        }
+        syncStaticCoverColliders();
+    }
+
+    public void rebuildTerrainPhysics() {
+        if (!game.state.physicsReady || physicsEngine == null || game.assets.terrain == null) return;
+        if (terrainBody != null) {
+            bodyInfo.remove(terrainBody);
+            MyGame.getEngine().getSceneGraph().removePhysicsObject(terrainBody);
+            terrainBody = null;
+        }
+        createTerrainPhysics();
+        clearEnvironmentCollidersForReplant();
+        game.itemSystem.requestEnvironmentReplant();
+    }
+
+    private void clearEnvironmentCollidersForReplant() {
+        for (MyGameSceneryRecord record : new ArrayList<>(sceneryRecords)) {
+            if (record.body != null) {
+                bodyInfo.remove(record.body);
+                MyGame.getEngine().getSceneGraph().removePhysicsObject(record.body);
+            }
+        }
+        sceneryRecords.clear();
+        sceneryCollidersReady = false;
+
+        for (MyGameBuildMeta meta : game.assets.staticCoverBuilds) {
+            if (meta != null) removeBuildPieceCollider(meta.key);
+        }
+        staticCoverCollidersReady = false;
+    }
+
+    private void syncStaticCoverColliders() {
+        if (staticCoverCollidersReady) return;
+        for (MyGameBuildMeta meta : game.assets.staticCoverBuilds) {
+            if (meta == null) continue;
+            GameObject piece = game.state.wallMap.get(meta.key);
+            if (piece == null) continue;
+            registerBuildPiece(piece, meta.key, meta.pieceType, meta.modeType, meta.roofDir, meta.materialType, meta.position);
+        }
+        staticCoverCollidersReady = true;
     }
 
     public void removeRemotePlayerBody(UUID id) {
@@ -237,6 +382,7 @@ public class MyGamePhysicsSystem {
         }
         if (type == PROJECTILE_ROCK) game.state.rockCharges--;
         else game.state.babyZombieCharges--;
+        if (type == PROJECTILE_ROCK) game.smilingManSystem.reportNoise(pos, GameConstants.NOISE_ROCK_RADIUS);
         game.itemSystem.onThrowableChargesChanged();
         game.state.projectileCooldown = game.state.projectileCooldownTime;
         game.hudSystem.showEvent(type == PROJECTILE_ROCK ? "ROCK THROWN" : "BABY ZOMBIE THROWN", 0.8);
@@ -245,6 +391,7 @@ public class MyGamePhysicsSystem {
     public void spawnRemoteProjectile(UUID sourceId, int projectileType, Vector3f pos, Vector3f velocity) {
         if (!game.state.physicsReady || sourceId == null || sourceId.equals(getLocalPlayerId())) return;
         spawnProjectile(sourceId, projectileType, pos, velocity, false);
+        if (projectileType == PROJECTILE_ROCK) game.smilingManSystem.reportNoise(pos, GameConstants.NOISE_ROCK_RADIUS);
     }
 
     public void attackBuildPiece() {
@@ -262,11 +409,11 @@ public class MyGamePhysicsSystem {
         }
         target.hits++;
         game.state.buildAttackCooldown = game.state.buildAttackCooldownTime;
-        if (target.hits >= 2) {
-            game.buildSystem.destroyBuildPiece(target.key, target.pieceType, target.modeType, target.roofDir, target.position, true);
+        if (target.hits >= target.hitsRequired) {
+            game.buildSystem.destroyBuildPiece(target.key, target.pieceType, target.modeType, target.roofDir, target.materialType, target.position, true);
             game.hudSystem.showEvent("BUILD PIECE DESTROYED", 1.0);
         } else {
-            game.hudSystem.showEvent("BUILD HIT 1/2", 0.8);
+            game.hudSystem.showEvent("BUILD HIT " + target.hits + "/" + target.hitsRequired, 0.8);
         }
     }
 
@@ -275,9 +422,12 @@ public class MyGamePhysicsSystem {
         if (game.state.buildAttackCooldown > 0.0) return;
         UUID humanTarget = findHumanInFront();
         if (humanTarget != null) {
-            if (game.state.protClient != null && game.state.isClientConnected) game.state.protClient.sendTagMessage(humanTarget);
-            game.state.remoteZombieStates.put(humanTarget, true);
-            applyRemoteRoleVisual(humanTarget);
+            if (game.state.protClient != null && game.state.isClientConnected) {
+                game.state.protClient.sendTagMessage(humanTarget);
+            } else {
+                game.state.remoteZombieStates.put(humanTarget, true);
+                applyRemoteRoleVisual(humanTarget);
+            }
             game.state.buildAttackCooldown = game.state.buildAttackCooldownTime;
             game.hudSystem.showEvent("HUMAN TAGGED", 1.0);
             return;
@@ -320,7 +470,7 @@ public class MyGamePhysicsSystem {
     public void applyRemoteTag(UUID sourceId, UUID targetId) {
         if (targetId == null) return;
         if (targetId.equals(getLocalPlayerId())) {
-            becomeZombie("TAGGED BY ZOMBIE");
+            becomeZombie("TAGGED BY ZOMBIE", !serverRoundAuthoritative);
             return;
         }
         game.state.remoteZombieStates.put(targetId, true);
@@ -359,6 +509,22 @@ public class MyGamePhysicsSystem {
             game.state.remoteInvisibleStates.put(id, false);
             applyRemoteRoleVisual(id);
         }
+    }
+
+    public void applyHumanLastChanceEscape(UUID id) {
+        if (id == null) return;
+        if (id.equals(getLocalPlayerId())) {
+            setLocalZombie(false, false);
+            game.state.health = GameConstants.HUMAN_LAST_CHANCE_ESCAPE_HEALTH;
+            respawnLocalPlayerAtRandomSpot();
+            game.hudSystem.showEvent("LUCKY ESCAPE", 1.8);
+            return;
+        }
+
+        game.state.remoteZombieStates.put(id, false);
+        game.state.remoteInvisibleStates.put(id, false);
+        game.state.remoteHealthStates.put(id, GameConstants.HUMAN_LAST_CHANCE_ESCAPE_HEALTH);
+        applyRemoteRoleVisual(id);
     }
 
     public void applyRemoteAnimation(UUID id, String animationName) {
@@ -402,6 +568,7 @@ public class MyGamePhysicsSystem {
         serverRoundAuthoritative = true;
         serverIntermissionEndEpochMs = 0L;
         serverRoundEndEpochMs = 0L;
+        game.state.roundStartingZombieId = null;
         game.state.zombieRoundActive = false;
         game.state.zombieIntermissionStarted = false;
         game.state.zombieIntermissionRemaining = game.state.zombieIntermissionTime;
@@ -416,6 +583,7 @@ public class MyGamePhysicsSystem {
         serverRoundAuthoritative = true;
         serverIntermissionEndEpochMs = endEpochMs;
         serverRoundEndEpochMs = 0L;
+        game.state.roundStartingZombieId = null;
         game.state.zombieRoundActive = false;
         game.state.zombieIntermissionStarted = true;
         game.state.matchHumanWon = false;
@@ -430,12 +598,14 @@ public class MyGamePhysicsSystem {
         serverRoundAuthoritative = true;
         serverIntermissionEndEpochMs = 0L;
         serverRoundEndEpochMs = endEpochMs;
+        game.state.roundStartingZombieId = zombieId;
         game.state.matchHumanWon = false;
         game.state.matchZombieWon = false;
         game.state.zombieRoundActive = true;
         game.state.zombieIntermissionStarted = true;
         game.state.zombieIntermissionRemaining = 0.0;
         game.state.survivalTimeRemaining = secondsUntil(endEpochMs);
+        game.worldBuilder.selectRoundHeightMap(zombieId, endEpochMs);
         respawnLocalPlayerAtRandomSpot();
         setLocalZombie(zombieId != null && zombieId.equals(getLocalPlayerId()), false);
         game.visualSystem.randomizeRoundSkybox(zombieId, endEpochMs);
@@ -462,14 +632,21 @@ public class MyGamePhysicsSystem {
         game.state.matchZombieWon = false;
         game.state.postRoundRestartTimer = 0.0;
         game.state.zombieRoundActive = false;
+        game.state.roundStartingZombieId = null;
         game.state.buildMode = false;
         game.state.dashCharges = 0;
         game.state.rockCharges = 0;
         game.state.buildMaterials = 0;
+        game.state.metalBuildMaterials = 0;
+        game.state.glassBuildMaterials = 0;
         game.state.babyZombieCharges = 0;
         game.state.invisCharges = 0;
         game.state.invisTimer = 0.0;
         game.state.slowTimer = 0.0;
+        game.state.blindTimer = 0.0;
+        game.state.blindCooldownTimer = 0.0;
+        game.state.stareWarningTimer = 0.0;
+        game.state.flashlightBlindCooldowns.clear();
         game.state.projectileCooldown = 0.0;
         game.state.buildAttackCooldown = 0.0;
         game.itemSystem.clearHumanCarryItems();
@@ -503,7 +680,7 @@ public class MyGamePhysicsSystem {
         Quaternionf rot = new Quaternionf();
         game.assets.terrain.getWorldRotation().getNormalizedRotation(rot);
         terrainBody = MyGame.getEngine().getSceneGraph().addPhysicsStaticTerrainMesh(
-                loc, rot, game.assets.heightMaptx, 200.0f, 20.0f, 100);
+                loc, rot, game.assets.heightMaptx, GameConstants.WORLD_TERRAIN_SIZE, 20.0f, 160);
         terrainBody.setFriction(1.0f);
         terrainBody.setBounciness(0.0f);
         bodyInfo.put(terrainBody, new MyGameBodyInfo(MyGameBodyKind.TERRAIN));
@@ -535,7 +712,7 @@ public class MyGamePhysicsSystem {
     private MyGameBodyKind pickupKindForType(int pickupType) {
         if (pickupType == PICKUP_TYPE_DASH) return MyGameBodyKind.DASH_PICKUP;
         if (pickupType == PICKUP_TYPE_INVIS) return MyGameBodyKind.INVIS_PICKUP;
-        if (pickupType == PICKUP_TYPE_BUILD) return MyGameBodyKind.BUILD_PICKUP;
+        if (pickupType == PICKUP_TYPE_BUILD || pickupType == PICKUP_TYPE_BUILD_METAL || pickupType == PICKUP_TYPE_BUILD_GLASS) return MyGameBodyKind.BUILD_PICKUP;
         if (pickupType == PICKUP_TYPE_ROCK) return MyGameBodyKind.ROCK_PICKUP;
         if (pickupType == PICKUP_TYPE_BABY_ZOMBIE) return MyGameBodyKind.BABY_ZOMBIE_PICKUP;
         if (pickupType == PICKUP_TYPE_FLASHLIGHT) return MyGameBodyKind.FLASHLIGHT_PICKUP;
@@ -547,6 +724,8 @@ public class MyGamePhysicsSystem {
         if (pickupType == PICKUP_TYPE_DASH) return new Vector3f(0.1f, 0.6f, 1.0f);
         if (pickupType == PICKUP_TYPE_INVIS) return new Vector3f(0.22f, 0.12f, 0.08f);
         if (pickupType == PICKUP_TYPE_BUILD) return new Vector3f(1.0f, 0.8f, 0.15f);
+        if (pickupType == PICKUP_TYPE_BUILD_METAL) return new Vector3f(0.55f, 0.55f, 0.62f);
+        if (pickupType == PICKUP_TYPE_BUILD_GLASS) return new Vector3f(0.62f, 0.85f, 1.0f);
         if (pickupType == PICKUP_TYPE_ROCK) return new Vector3f(0.55f, 0.55f, 0.55f);
         if (pickupType == PICKUP_TYPE_BABY_ZOMBIE) return new Vector3f(0.2f, 0.85f, 0.25f);
         if (pickupType == PICKUP_TYPE_FLASHLIGHT) return new Vector3f(1.0f, 0.95f, 0.55f);
@@ -557,6 +736,8 @@ public class MyGamePhysicsSystem {
         if (pickupType == PICKUP_TYPE_DASH) return "DASH";
         if (pickupType == PICKUP_TYPE_INVIS) return "INVIS";
         if (pickupType == PICKUP_TYPE_BUILD) return "MAT";
+        if (pickupType == PICKUP_TYPE_BUILD_METAL) return "METAL";
+        if (pickupType == PICKUP_TYPE_BUILD_GLASS) return "GLASS";
         if (pickupType == PICKUP_TYPE_ROCK) return "ROCK";
         if (pickupType == PICKUP_TYPE_BABY_ZOMBIE) return "BABY";
         if (pickupType == PICKUP_TYPE_FLASHLIGHT) return "LIGHT";
@@ -566,7 +747,7 @@ public class MyGamePhysicsSystem {
 
     private MyGamePickupRecord createPickup(int id, int pickupType, MyGameBodyKind kind, Vector3f color, String label) {
         GameObject object;
-        if (kind == MyGameBodyKind.BUILD_PICKUP) object = new GameObject(GameObject.root(), game.assets.cubeS, game.assets.woodBlockTx);
+        if (kind == MyGameBodyKind.BUILD_PICKUP) object = new GameObject(GameObject.root(), game.assets.cubeS, buildPickupTexture(pickupType));
         else if (kind == MyGameBodyKind.ROCK_PICKUP) object = new GameObject(GameObject.root(), game.assets.rock2S, game.assets.rockTx);
         else if (kind == MyGameBodyKind.INVIS_PICKUP) object = new GameObject(GameObject.root(), game.assets.lowpolyHoodS, game.assets.hoodTx);
         else if (kind == MyGameBodyKind.DASH_PICKUP) object = new GameObject(GameObject.root(), game.assets.dashPickupS);
@@ -582,8 +763,21 @@ public class MyGamePhysicsSystem {
         if (kind == MyGameBodyKind.POTION_PICKUP) {
             stylePotionGlass(object, 0.28f);
         }
+        if (kind == MyGameBodyKind.BUILD_PICKUP && pickupType == PICKUP_TYPE_BUILD_GLASS) styleBuildPickupGlass(object);
         object.getRenderStates().disableRendering();
         return new MyGamePickupRecord(id, pickupType, kind, object, label);
+    }
+
+    private TextureImage buildPickupTexture(int pickupType) {
+        if (pickupType == PICKUP_TYPE_BUILD_METAL) return game.assets.metalBuildTx;
+        if (pickupType == PICKUP_TYPE_BUILD_GLASS) return game.assets.glassBuildTx;
+        return game.assets.woodBlockTx;
+    }
+
+    private void styleBuildPickupGlass(GameObject object) {
+        object.getRenderStates().hasLighting(true);
+        object.getRenderStates().isTransparent(true);
+        object.getRenderStates().setOpacity(0.42f);
     }
 
     private float getPickupVisualScale(MyGameBodyKind kind) {
@@ -592,16 +786,16 @@ public class MyGamePhysicsSystem {
         if (kind == MyGameBodyKind.INVIS_PICKUP) return 0.55f;
         if (kind == MyGameBodyKind.DASH_PICKUP) return 0.09f;
         if (kind == MyGameBodyKind.BABY_ZOMBIE_PICKUP) return 0.15f;
-        if (kind == MyGameBodyKind.FLASHLIGHT_PICKUP) return 0.18f;
+        if (kind == MyGameBodyKind.FLASHLIGHT_PICKUP) return 0.24f;
         if (kind == MyGameBodyKind.POTION_PICKUP) return 0.15f;
         return 0.45f;
     }
 
     public void stylePotionGlass(GameObject object, float opacity) {
         if (object == null) return;
-        object.getRenderStates().hasLighting(false);
+        object.getRenderStates().hasLighting(true);
         object.getRenderStates().setHasSolidColor(true);
-        object.getRenderStates().setColor(new Vector3f(0.72f, 0.96f, 1.0f));
+        object.getRenderStates().setColor(new Vector3f(1.0f, 0.08f, 0.06f));
         object.getRenderStates().isTransparent(true);
         object.getRenderStates().setOpacity(opacity);
     }
@@ -817,7 +1011,7 @@ public class MyGamePhysicsSystem {
             offset.mulDirection(object.getWorldRotation());
             float x = treeLoc.x + offset.x;
             float z = treeLoc.z + offset.z;
-            float radius = clamp(spec.localRadius * scale, 0.28f, 0.95f);
+            float radius = clamp(spec.localRadius * scale * 0.82f, 0.20f, 0.78f);
             float halfHeight = clamp(spec.localHalfHeight * scale, 1.15f, 3.35f);
             Vector3f loc = new Vector3f(x, terrainHeight(x, z) + halfHeight, z);
 
@@ -986,9 +1180,9 @@ public class MyGamePhysicsSystem {
 
     private float[] getRockColliderHalfExtents(MyGameSceneryBounds bounds, float scale) {
         return new float[] {
-                clamp(bounds.width * scale * 0.36f, 0.20f, 2.3f),
-                clamp(bounds.height * scale * 0.36f, 0.16f, 1.65f),
-                clamp(bounds.depth * scale * 0.36f, 0.20f, 2.3f)
+                clamp(bounds.width * scale * 0.30f, 0.16f, 1.9f),
+                clamp(bounds.height * scale * 0.34f, 0.14f, 1.5f),
+                clamp(bounds.depth * scale * 0.30f, 0.16f, 1.9f)
         };
     }
 
@@ -1075,12 +1269,15 @@ public class MyGamePhysicsSystem {
     }
 
     private void startZombieRound() {
+        long roundSeed = System.currentTimeMillis();
         game.state.matchHumanWon = false;
         game.state.matchZombieWon = false;
         game.state.postRoundRestartTimer = 0.0;
         game.state.survivalTimeRemaining = game.state.survivalRoundDuration;
-        respawnLocalPlayerAtRandomSpot();
         UUID zombieId = chooseStartingZombie();
+        game.state.roundStartingZombieId = zombieId;
+        game.worldBuilder.selectRoundHeightMap(zombieId, roundSeed);
+        respawnLocalPlayerAtRandomSpot();
         setLocalZombie(zombieId != null && zombieId.equals(getLocalPlayerId()), true);
 
         for (UUID id : getKnownPlayerIds()) {
@@ -1094,13 +1291,14 @@ public class MyGamePhysicsSystem {
         game.state.zombieRoundActive = true;
         game.state.zombieIntermissionStarted = true;
         game.state.zombieIntermissionRemaining = 0.0;
-        game.visualSystem.randomizeRoundSkybox(zombieId, System.currentTimeMillis());
+        game.visualSystem.randomizeRoundSkybox(zombieId, roundSeed);
         game.soundSystem.playScaryLaughForPlayer(zombieId);
         game.hudSystem.showEvent(game.state.localPlayerZombie ? "YOU ARE THE ZOMBIE" : "RUN FROM THE ZOMBIE", 2.0);
     }
 
     private void finishMatch(boolean humansWon) {
         game.state.zombieRoundActive = false;
+        game.state.roundStartingZombieId = null;
         game.state.matchHumanWon = humansWon;
         game.state.matchZombieWon = !humansWon;
         game.state.postRoundRestartTimer = serverRoundAuthoritative ? 0.0 : 5.0;
@@ -1162,9 +1360,12 @@ public class MyGamePhysicsSystem {
         if (!game.state.zombieRoundActive || remoteId == null) return;
         boolean remoteZombie = game.state.remoteZombieStates.getOrDefault(remoteId, false);
         if (game.state.localPlayerZombie && !remoteZombie) {
-            if (game.state.protClient != null && game.state.isClientConnected) game.state.protClient.sendTagMessage(remoteId);
-            game.state.remoteZombieStates.put(remoteId, true);
-            applyRemoteRoleVisual(remoteId);
+            if (game.state.protClient != null && game.state.isClientConnected) {
+                game.state.protClient.sendTagMessage(remoteId);
+            } else {
+                game.state.remoteZombieStates.put(remoteId, true);
+                applyRemoteRoleVisual(remoteId);
+            }
             game.hudSystem.showEvent("HUMAN TAGGED", 1.0);
         } else if (!game.state.localPlayerZombie && remoteZombie) {
             becomeZombie("TAGGED BY ZOMBIE");
@@ -1208,10 +1409,12 @@ public class MyGamePhysicsSystem {
             return true;
         } else if (pickup.kind == MyGameBodyKind.BUILD_PICKUP) {
             if (game.state.localPlayerZombie) return false;
-            game.state.buildMaterials++;
+            if (pickup.type == PICKUP_TYPE_BUILD_METAL) game.state.metalBuildMaterials++;
+            else if (pickup.type == PICKUP_TYPE_BUILD_GLASS) game.state.glassBuildMaterials++;
+            else game.state.buildMaterials++;
             if (hideAfterGrant) hidePickup(pickup, pickupRespawnSeconds);
             game.soundSystem.playPickupCollect(pickup.object.getWorldLocation());
-            game.hudSystem.showEvent("BUILD MATERIAL +" + game.state.buildMaterials, 1.0);
+            game.hudSystem.showEvent(buildPickupGrantMessage(pickup.type), 1.0);
             return true;
         } else if (pickup.kind == MyGameBodyKind.ROCK_PICKUP) {
             if (game.state.localPlayerZombie) return false;
@@ -1258,6 +1461,12 @@ public class MyGamePhysicsSystem {
         if (pickup.kind == MyGameBodyKind.FLASHLIGHT_PICKUP) return game.itemSystem.canGrantFlashlightFromPickup();
         if (pickup.kind == MyGameBodyKind.POTION_PICKUP) return game.itemSystem.canGrantPotionFromPickup();
         return false;
+    }
+
+    private String buildPickupGrantMessage(int pickupType) {
+        if (pickupType == PICKUP_TYPE_BUILD_METAL) return "METAL MATERIAL +" + game.state.metalBuildMaterials;
+        if (pickupType == PICKUP_TYPE_BUILD_GLASS) return "GLASS MATERIAL +" + game.state.glassBuildMaterials;
+        return "WOOD MATERIAL +" + game.state.buildMaterials;
     }
 
     private void useHumanDash() {
@@ -1444,6 +1653,7 @@ public class MyGamePhysicsSystem {
             push.normalize().mul(0.35f);
             corrected.add(push);
         }
+        corrected = clampToWorldBounds(corrected);
         corrected.y = game.state.onGround ? getWalkableGroundHeight(corrected.x, corrected.z, current.y) : current.y;
         return corrected;
     }
@@ -1470,6 +1680,17 @@ public class MyGamePhysicsSystem {
         return false;
     }
 
+    private boolean isNpcBlockedByScenery(Vector3f npcFeet, float radius) {
+        if (npcFeet == null || sceneryRecords.isEmpty()) return false;
+        for (MyGameSceneryRecord record : sceneryRecords) {
+            if (record == null) continue;
+            if (!isNpcInsideSceneryFootprint(record, npcFeet.x, npcFeet.z, radius)) continue;
+            if (!npcVerticalOverlapsScenery(npcFeet.y, record)) continue;
+            return true;
+        }
+        return false;
+    }
+
     private boolean playerVerticalOverlapsScenery(float playerFeetY, MyGameSceneryRecord record) {
         float playerBottom = playerFeetY + 0.05f;
         float playerTop = playerFeetY + 2.10f;
@@ -1478,11 +1699,19 @@ public class MyGamePhysicsSystem {
         return playerTop >= objectBottom && playerBottom <= objectTop;
     }
 
+    private boolean npcVerticalOverlapsScenery(float npcFeetY, MyGameSceneryRecord record) {
+        float npcBottom = npcFeetY + 0.05f;
+        float npcTop = npcFeetY + 2.30f;
+        float objectBottom = record.center.y - record.halfY;
+        float objectTop = record.center.y + record.halfY;
+        return npcTop >= objectBottom && npcBottom <= objectTop;
+    }
+
     private boolean isInsideSceneryFootprint(MyGameSceneryRecord record, float x, float z, float margin) {
         if (record == null) return false;
         float dx = x - record.center.x;
         float dz = z - record.center.z;
-        float broad = Math.max(record.halfX, record.halfZ) + Math.abs(margin) + playerBodyRadius;
+        float broad = Math.max(record.halfX, record.halfZ) + Math.max(0.0f, margin) + playerBodyRadius * 0.35f;
         if ((dx * dx) + (dz * dz) > broad * broad) return false;
 
         Vector3f local = new Vector3f(dx, 0f, dz);
@@ -1490,6 +1719,31 @@ public class MyGamePhysicsSystem {
         local.mulDirection(invRot);
         return Math.abs(local.x) <= Math.max(0.05f, record.halfX + margin)
                 && Math.abs(local.z) <= Math.max(0.05f, record.halfZ + margin);
+    }
+
+    private boolean isNpcInsideSceneryFootprint(MyGameSceneryRecord record, float x, float z, float radius) {
+        if (record == null) return false;
+        float dx = x - record.center.x;
+        float dz = z - record.center.z;
+        float broad = Math.max(record.halfX, record.halfZ) + radius;
+        if ((dx * dx) + (dz * dz) > broad * broad) return false;
+
+        Vector3f local = new Vector3f(dx, 0f, dz);
+        Matrix4f invRot = new Matrix4f(record.object.getWorldRotation()).invert();
+        local.mulDirection(invRot);
+        return Math.abs(local.x) <= Math.max(0.05f, record.halfX + radius)
+                && Math.abs(local.z) <= Math.max(0.05f, record.halfZ + radius);
+    }
+
+    private boolean isNpcInsideBuildPieceFootprint(MyGameBuildRecord record, Vector3f npcFeet, float radius) {
+        Vector3f probe = new Vector3f(npcFeet.x - record.position.x, npcFeet.y + 1.05f - record.position.y, npcFeet.z - record.position.z);
+        Matrix4f invRot = new Matrix4f(record.object.getWorldRotation()).invert();
+        probe.mulDirection(invRot);
+        Matrix4f scale = record.object.getWorldScale();
+        float halfX = Math.abs(scale.m00()) + radius;
+        float halfY = Math.abs(scale.m11()) + 1.10f;
+        float halfZ = 0.36f + radius;
+        return Math.abs(probe.x) <= halfX && Math.abs(probe.y) <= halfY && Math.abs(probe.z) <= halfZ;
     }
 
     private float getWalkableBuildPieceHeight(MyGameBuildRecord record, float x, float z, float currentPlayerY) {
@@ -1562,9 +1816,37 @@ public class MyGamePhysicsSystem {
     }
 
     private void becomeZombie(String message) {
+        becomeZombie(message, true);
+    }
+
+    private void becomeZombie(String message, boolean allowLastChanceEscape) {
         if (game.state.localPlayerZombie) return;
+        if (allowLastChanceEscape && tryLocalLastChanceEscape("LUCKY ESCAPE")) return;
         setLocalZombie(true, true);
         game.hudSystem.showEvent(message, 1.5);
+    }
+
+    public boolean tryLocalLastChanceEscape(String message) {
+        if (!game.state.zombieRoundActive || game.isMatchOver()) return false;
+        if (game.state.localPlayerZombie) return false;
+        UUID localId = getLocalPlayerId();
+        if (localId != null && localId.equals(game.state.roundStartingZombieId)) return false;
+        if (pickupRandom.nextFloat() >= GameConstants.HUMAN_LAST_CHANCE_ESCAPE_CHANCE) return false;
+
+        game.state.slowTimer = 0.0;
+        game.state.blindTimer = 0.0;
+        game.state.blindCooldownTimer = 0.0;
+        game.state.buildMode = false;
+        setLocalZombie(false, false);
+        game.state.health = GameConstants.HUMAN_LAST_CHANCE_ESCAPE_HEALTH;
+        respawnLocalPlayerAtRandomSpot();
+        if (game.state.protClient != null && game.state.isClientConnected) {
+            game.state.protClient.sendRoleMessage(false);
+            game.state.protClient.sendHealthMessage(game.state.health);
+        }
+        game.smilingManSystem.onHumanLastChanceEscape(localId);
+        game.hudSystem.showEvent(message == null || message.isBlank() ? "LUCKY ESCAPE" : message, 1.8);
+        return true;
     }
 
     private void setLocalZombie(boolean zombie, boolean broadcast) {
@@ -1577,6 +1859,8 @@ public class MyGamePhysicsSystem {
             game.itemSystem.clearHumanCarryItems();
         } else {
             game.state.health = game.state.maxHealth;
+            game.state.blindTimer = 0.0;
+            game.state.blindCooldownTimer = 0.0;
             game.state.babyZombieCharges = 0;
             game.state.invisCharges = 0;
             game.state.invisTimer = 0.0;
@@ -1663,8 +1947,16 @@ public class MyGamePhysicsSystem {
         return game.state.offlineLocalId;
     }
 
-    private float[] getBuildPieceColliderSize(int pieceType, int modeType) {
+    private float[] getBuildPieceColliderSize(GameObject piece, int pieceType, int modeType) {
         float halfThickness = 0.10f;
+        if (piece != null) {
+            Matrix4f scale = piece.getWorldScale();
+            return new float[] {
+                    Math.max(0.05f, Math.abs(scale.m00()) * 0.96f),
+                    Math.max(0.05f, Math.abs(scale.m11()) * 0.96f),
+                    halfThickness
+            };
+        }
         if (pieceType == 0) {
             return new float[] {game.state.buildWallHalfW * 0.96f, game.state.buildWallHalfH * 0.96f, halfThickness};
         }

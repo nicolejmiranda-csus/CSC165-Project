@@ -21,6 +21,7 @@ public class MyGameSoundSystem {
 
     private final MyGame game;
     private final HashMap<UUID, MyGamePlayerSoundSet> remotePlayerSounds = new HashMap<>();
+    private final HashMap<Integer, MyGameSmilingManSoundSet> smilingManSounds = new HashMap<>();
     private boolean loaded = false;
     private boolean countdownFivePlayed = false;
 
@@ -39,6 +40,10 @@ public class MyGameSoundSystem {
     private AudioResource girlBreathResource;
     private AudioResource guyBreathResource;
     private AudioResource woodResource;
+    private AudioResource smilingManWalkResource;
+    private AudioResource smilingManRunResource;
+    private AudioResource smilingManBreathResource;
+    private AudioResource smilingManHelloResource;
 
     private MyGamePlayerSoundSet localPlayerSounds;
     private Sound pickupSound;
@@ -71,6 +76,10 @@ public class MyGameSoundSystem {
             girlBreathResource = resource("mono_hasin2004-breathing-fast-247449.wav");
             guyBreathResource = resource("mono_u_hn60smked5-sound-effect-breathing-hard-122341.wav");
             woodResource = resource("mono_u_scysdwddsp-wood-effect-254997.wav");
+            smilingManWalkResource = resource("jokerzillagames-walking-366933.wav");
+            smilingManRunResource = resource("freesound_community-running-sounds-6003.wav");
+            smilingManBreathResource = resource("ribhavagrawal-heavy-breathing-sound-effect-type-03-294201.wav");
+            smilingManHelloResource = resource("freesound_community-hello-81683.wav");
 
             localPlayerSounds = createPlayerSoundSet();
             pickupSound = oneShot(pickupResource, 75, 2f, 45f, 1.6f);
@@ -105,6 +114,7 @@ public class MyGameSoundSystem {
         if (localPlayerSounds != null) localPlayerSounds.stopAll();
         for (MyGamePlayerSoundSet sounds : remotePlayerSounds.values()) sounds.stopAll();
         remotePlayerSounds.clear();
+        stopAllSmilingMen();
         stop(scaryAmbienceSound);
     }
 
@@ -152,6 +162,26 @@ public class MyGameSoundSystem {
         playAt(woodPlaceSound, location);
     }
 
+    public void updateSmilingManLoop(int index, Vector3f location, boolean walking, boolean running) {
+        if (!loaded) return;
+        getSmilingManSounds(index).update(location, walking, running);
+    }
+
+    public void playSmilingManHello(int index, Vector3f location) {
+        if (!loaded) return;
+        getSmilingManSounds(index).playHello(location);
+    }
+
+    public void stopSmilingMan(int index) {
+        MyGameSmilingManSoundSet sounds = smilingManSounds.remove(index);
+        if (sounds != null) sounds.stopAll();
+    }
+
+    public void stopAllSmilingMen() {
+        for (MyGameSmilingManSoundSet sounds : smilingManSounds.values()) sounds.stopAll();
+        smilingManSounds.clear();
+    }
+
     private AudioResource resource(String fileName) {
         return audioMgr.createAudioResource(fileName, AudioResourceType.AUDIO_SAMPLE);
     }
@@ -171,6 +201,18 @@ public class MyGameSoundSystem {
                 loop(zombieBreathResource, 48, 2f, 35f, 1.5f),
                 loop(girlBreathResource, 58, 1.2f, 30f, 1.5f),
                 loop(guyBreathResource, 72, 1.2f, 34f, 1.4f));
+    }
+
+    private MyGameSmilingManSoundSet getSmilingManSounds(int index) {
+        return smilingManSounds.computeIfAbsent(index, key -> createSmilingManSoundSet());
+    }
+
+    private MyGameSmilingManSoundSet createSmilingManSoundSet() {
+        return new MyGameSmilingManSoundSet(
+                loop(smilingManWalkResource, 70, 3f, 70f, 1.0f),
+                loop(smilingManRunResource, 86, 3f, 100f, 0.9f),
+                loop(smilingManBreathResource, 88, 3f, 95f, 0.9f),
+                oneShot(smilingManHelloResource, 92, 3f, 100f, 0.8f));
     }
 
     private Sound loop(AudioResource resource, int volume, float minDistance, float maxDistance, float rolloff) {
@@ -206,12 +248,13 @@ public class MyGameSoundSystem {
 
     private void updatePlayerLoops() {
         if (game.assets.avatar != null && localPlayerSounds != null) {
-            localPlayerSounds.update(
+                localPlayerSounds.update(
                     game.assets.avatar.getWorldLocation(),
                     game.animationSystem.wasMovingThisFrame() && !game.animationSystem.wasRunningThisFrame() && game.state.onGround,
                     game.animationSystem.wasMovingThisFrame() && game.animationSystem.wasRunningThisFrame() && game.state.onGround,
                     game.state.localPlayerZombie,
-                    game.isPlayerModel2Selected());
+                    game.isPlayerModel2Selected(),
+                    localPanicIntensity());
         }
 
         HashSet<UUID> liveIds = new HashSet<>();
@@ -228,7 +271,8 @@ public class MyGameSoundSystem {
                         walking,
                         running,
                         game.state.remoteZombieStates.getOrDefault(id, false),
-                        "playerModel2".equals(ghost.getAvatarType()));
+                        "playerModel2".equals(ghost.getAvatarType()),
+                        0f);
             }
         }
 
@@ -252,6 +296,14 @@ public class MyGameSoundSystem {
             countdownFivePlayed = true;
             playCountdownFive();
         }
+    }
+
+    private float localPanicIntensity() {
+        if (game.state.localPlayerZombie || game.state.health <= 0) return 0f;
+        float healthPanic = 1.0f - Math.max(0f, Math.min(1f, game.state.health / (float) game.state.maxHealth));
+        float distance = game.smilingManSystem.distanceToClosestSpawned(game.assets.avatar.getWorldLocation());
+        float proximityPanic = distance == Float.MAX_VALUE ? 0f : 1.0f - Math.max(0f, Math.min(1f, distance / 45.0f));
+        return Math.max(healthPanic, proximityPanic);
     }
 
     private void playAt(Sound sound, Vector3f location) {

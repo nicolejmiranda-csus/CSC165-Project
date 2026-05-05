@@ -28,9 +28,9 @@ public class MyGameInputBinder {
         im.associateActionWithAllKeyboards(Key.S, new MoveAction(game, -1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
-        im.associateActionWithAllKeyboards(Key.LEFT, new YawAction(game, 1f),
+        im.associateActionWithAllKeyboards(Key.LEFT, new OrbitAction(game, -1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-        im.associateActionWithAllKeyboards(Key.RIGHT, new YawAction(game, -1f),
+        im.associateActionWithAllKeyboards(Key.RIGHT, new OrbitAction(game, +1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
         im.associateActionWithAllKeyboards(Key.A, new StrafeAction(game, -1f),
@@ -51,13 +51,13 @@ public class MyGameInputBinder {
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         im.associateActionWithAllKeyboards(Key.DOWN, new ElevateAction(game, +1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-        im.associateActionWithAllKeyboards(Key.Z, new ZoomAction(game, -1f),
+        im.associateActionWithAllKeyboards(Key.PAGEUP, new ZoomAction(game, -1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
-        im.associateActionWithAllKeyboards(Key.X, new ZoomAction(game, +1f),
+        im.associateActionWithAllKeyboards(Key.PAGEDOWN, new ZoomAction(game, +1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
 
-        im.associateActionWithAllKeyboards(Key.I, new OverPanAction(game, 0f, -1f),
-                InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
+        im.associateActionWithAllKeyboards(Key.I, new ToggleHelpAction(game),
+                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
         im.associateActionWithAllKeyboards(Key.K, new OverPanAction(game, 0f, +1f),
                 InputManager.INPUT_ACTION_TYPE.REPEAT_WHILE_DOWN);
         im.associateActionWithAllKeyboards(Key.J, new OverPanAction(game, -1f, 0f),
@@ -86,6 +86,8 @@ public class MyGameInputBinder {
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
 
         im.associateActionWithAllKeyboards(Key.E, new ToggleBuildAction(game),
+                InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
+        im.associateActionWithAllKeyboards(Key.B, new CycleBuildMaterialAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
         im.associateActionWithAllKeyboards(Key.TAB, new ToggleMouseLookAction(game),
                 InputManager.INPUT_ACTION_TYPE.ON_PRESS_ONLY);
