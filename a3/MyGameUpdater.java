@@ -19,12 +19,15 @@ public class MyGameUpdater {
         game.physicsSystem.update((float) game.state.elapsedTime);
         game.animationSystem.updateLocalAvatarAnimation();
         if (game.state.gm != null) game.state.gm.updateGhostAnimations();
+        game.smilingManSystem.update((float) game.state.elapsedTime);
         game.cameraSystem.updateCameraLimits();
         game.cameraSystem.updateMainCamera();
         game.soundSystem.update((float) game.state.elapsedTime);
+        game.buildSystem.update((float) game.state.elapsedTime);
         game.buildSystem.updateBuildPreview();
         game.itemSystem.updateWorldState();
         game.networking.processNetworking((float) game.state.elapsedTime);
+        game.visualSystem.updateHidingVisuals();
         game.hudSystem.updateHUD();
         game.movementSystem.updateRunState((float) game.state.elapsedTime);
     }
