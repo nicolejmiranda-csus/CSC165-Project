@@ -1,13 +1,20 @@
 package a3;
 
+import java.util.ArrayList;
+import java.util.Map;
+import java.util.UUID;
+
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
+import a3.networking.GhostAvatar;
 import tage.GameObject;
 
 public class MyGameItemSystem {
     private final MyGame game;
     private float collectibleBobTime = 0.0f;
     private boolean sceneryPlaced = false;
+    private boolean tableCoversPlaced = false;
+    private boolean staticCoverPlaced = false;
     private final float collectibleBobAmplitude = 0.28f;
     private final float collectibleBobSpeed = 3.2f;
     private final float collectibleGroundClearance = 0.04f;
@@ -23,11 +30,32 @@ public class MyGameItemSystem {
         updateCarriedPotionPose();
         updateCarriedRockPose();
         updateCarriedBabyZombiePose();
+        updateFlashlightBattery((float) game.state.elapsedTime);
         updateSceneryHeights();
         updateFlashlightHeight();
         updateHealthPotionHeight();
         checkItemPickups();
         updateFlashlightSpotlight();
+        updateFlashlightBlind((float) game.state.elapsedTime);
+    }
+
+    public void requestEnvironmentReplant() {
+        sceneryPlaced = false;
+        tableCoversPlaced = false;
+        staticCoverPlaced = false;
+    }
+
+    public void replantEnvironmentForCurrentTerrain() {
+        updateSceneryHeights();
+    }
+
+    public void applyRemoteBlind(UUID sourceId, UUID targetId, float seconds) {
+        if (targetId == null || !targetId.equals(game.getLocalPlayerId())) return;
+        if (!game.state.localPlayerZombie) return;
+        if (game.state.blindCooldownTimer > 0.0) return;
+        game.state.blindTimer = Math.max(game.state.blindTimer, Math.max(0.1f, seconds));
+        game.state.blindCooldownTimer = GameConstants.FLASHLIGHT_BLIND_COOLDOWN_SECONDS;
+        game.hudSystem.showEvent("FLASH BLIND", 1.0);
     }
 
     public void healPlayer(int amount) {
@@ -41,8 +69,11 @@ public class MyGameItemSystem {
         if (game.state.localPlayerZombie || game.state.health <= 0) return;
         game.state.health -= amount;
         if (game.state.health < 0) game.state.health = 0;
+        if (game.state.health <= 0) {
+            game.physicsSystem.convertLocalPlayerToZombieFromHealth();
+            return;
+        }
         sendHealth();
-        if (game.state.health <= 0) game.physicsSystem.convertLocalPlayerToZombieFromHealth();
     }
 
     public void equipFlashlight() {
@@ -118,6 +149,10 @@ public class MyGameItemSystem {
             game.hudSystem.showEvent("EQUIP FLASHLIGHT FIRST", 0.8);
             return;
         }
+        if (!game.state.flashlightOn && game.state.flashlightBatterySeconds <= 0.05f) {
+            game.hudSystem.showEvent("FLASHLIGHT BATTERY EMPTY", 0.9);
+            return;
+        }
         game.state.flashlightOn = !game.state.flashlightOn;
         updateFlashlightSpotlight();
         game.soundSystem.playFlashlightClick();
@@ -158,6 +193,7 @@ public class MyGameItemSystem {
         game.assets.flashlight = flashlight;
         game.state.hasFlashlight = true;
         game.state.flashlightOn = false;
+        game.state.flashlightBatterySeconds = GameConstants.FLASHLIGHT_BATTERY_SECONDS;
         updateCarriedFlashlightPose();
         updateEquippedItemVisibility();
         game.hudSystem.showEvent("FLASHLIGHT PICKED UP", 1.0);
@@ -182,6 +218,7 @@ public class MyGameItemSystem {
         game.state.hasFlashlight = false;
         game.state.hasPotion = false;
         game.state.flashlightOn = false;
+        game.state.flashlightBatterySeconds = 0f;
         if (game.state.equippedItem == GameConstants.ITEM_FLASHLIGHT
                 || game.state.equippedItem == GameConstants.ITEM_POTION
                 || game.state.equippedItem == GameConstants.ITEM_ROCK) {
@@ -257,15 +294,36 @@ public class MyGameItemSystem {
     }
 
     private void updateSceneryHeights() {
-        if (sceneryPlaced || game.assets.terrain == null || !game.state.physicsReady) return;
-        for (tage.GameObject prop : game.assets.sceneryProps) {
-            if (prop == null) continue;
-            Vector3f p = prop.getWorldLocation();
-            float clearance = game.assets.sceneryTrees.contains(prop) ? -treeTerrainSink : 0.03f;
-            prop.setLocalTranslation((new Matrix4f()).translation(p.x, terrainPlantedY(prop, clearance), p.z));
+        if (game.assets.terrain == null || !game.state.physicsReady) return;
+        if (!sceneryPlaced) {
+            for (tage.GameObject prop : game.assets.sceneryProps) {
+                if (prop == null) continue;
+                Vector3f p = prop.getWorldLocation();
+                float clearance = game.assets.sceneryTrees.contains(prop) ? -treeTerrainSink : 0.03f;
+                prop.setLocalTranslation((new Matrix4f()).translation(p.x, terrainPlantedY(prop, clearance), p.z));
+            }
+            sceneryPlaced = true;
+        }
+        if (!tableCoversPlaced) {
+            for (tage.GameObject table : game.assets.tableCovers) {
+                if (table == null) continue;
+                Vector3f p = table.getWorldLocation();
+                table.setLocalTranslation((new Matrix4f()).translation(p.x, terrainPlantedY(table, 0.02f), p.z));
+            }
+            tableCoversPlaced = true;
+        }
+        if (!staticCoverPlaced) {
+            for (MyGameBuildMeta meta : game.assets.staticCoverBuilds) {
+                if (meta == null) continue;
+                tage.GameObject piece = game.state.wallMap.get(meta.key);
+                if (piece == null) continue;
+                float y = game.assets.terrain.getHeight(meta.position.x, meta.position.z) + meta.terrainOffsetY;
+                meta.position.y = y;
+                piece.setLocalTranslation((new Matrix4f()).translation(meta.position));
+            }
+            staticCoverPlaced = true;
         }
         game.physicsSystem.syncSceneryColliders();
-        sceneryPlaced = true;
     }
 
     private float meshBottomLift(tage.GameObject object, float clearance) {
@@ -369,7 +427,8 @@ public class MyGameItemSystem {
 
     private void updateFlashlightSpotlight() {
         if (game.assets.flashlightSpotlight == null) return;
-        if (!game.state.hasFlashlight || game.state.equippedItem != GameConstants.ITEM_FLASHLIGHT || !game.state.flashlightOn) {
+        if (!game.state.hasFlashlight || game.state.equippedItem != GameConstants.ITEM_FLASHLIGHT
+                || !game.state.flashlightOn || game.state.flashlightBatterySeconds <= 0.0f) {
             game.assets.flashlightSpotlight.disable();
             return;
         }
@@ -383,6 +442,104 @@ public class MyGameItemSystem {
         game.assets.flashlightSpotlight.setLocation(lightPos);
         game.assets.flashlightSpotlight.setDirection(forward);
         game.assets.flashlightSpotlight.enable();
+    }
+
+    private void updateFlashlightBattery(float dt) {
+        if (!game.state.hasFlashlight) return;
+        if (game.state.flashlightOn) {
+            game.state.flashlightBatterySeconds -= dt;
+            if (game.state.flashlightBatterySeconds <= 0.0f) {
+                game.state.flashlightBatterySeconds = 0.0f;
+                turnFlashlightOff(false);
+                game.hudSystem.showEvent("FLASHLIGHT BATTERY EMPTY", 1.0);
+            }
+        } else if (game.state.flashlightBatterySeconds < GameConstants.FLASHLIGHT_BATTERY_SECONDS) {
+            game.state.flashlightBatterySeconds += dt;
+            if (game.state.flashlightBatterySeconds > GameConstants.FLASHLIGHT_BATTERY_SECONDS) {
+                game.state.flashlightBatterySeconds = GameConstants.FLASHLIGHT_BATTERY_SECONDS;
+            }
+        }
+    }
+
+    private boolean consumeFlashlightBattery(float seconds) {
+        if (!game.state.hasFlashlight) return false;
+        game.state.flashlightBatterySeconds -= Math.max(0.0f, seconds);
+        if (game.state.flashlightBatterySeconds <= 0.0f) {
+            game.state.flashlightBatterySeconds = 0.0f;
+            turnFlashlightOff(false);
+            game.hudSystem.showEvent("FLASHLIGHT BATTERY EMPTY", 0.9);
+        }
+        return game.state.flashlightBatterySeconds > 0.0f;
+    }
+
+    private void updateFlashlightBlind(float dt) {
+        updateFlashlightBlindCooldowns(dt);
+        if (!isFlashlightBeamActive()) return;
+
+        Vector3f origin = getFlashlightBeamOrigin();
+        Vector3f forward = getFlashlightBeamDirection();
+
+        if (game.state.gm != null) {
+            for (GhostAvatar ghost : game.getGhostManager().getGhostAvatarsSnapshot()) {
+                if (game.state.flashlightBatterySeconds <= 0.0f) return;
+                UUID id = ghost.getID();
+                if (!game.state.remoteZombieStates.getOrDefault(id, false)) continue;
+                if (game.state.flashlightBlindCooldowns.getOrDefault(id, 0.0) > 0.0) continue;
+                Vector3f head = new Vector3f(ghost.getWorldLocation()).add(0f, 1.55f, 0f);
+                if (!isPointInFlashlightBeam(origin, forward, head)) continue;
+                game.state.flashlightBlindCooldowns.put(id, (double) GameConstants.FLASHLIGHT_BLIND_COOLDOWN_SECONDS);
+                if (game.state.protClient != null && game.state.isClientConnected) {
+                    game.state.protClient.sendBlindMessage(id, GameConstants.FLASHLIGHT_BLIND_SECONDS);
+                }
+                consumeFlashlightBattery(GameConstants.FLASHLIGHT_BLIND_BATTERY_COST);
+                game.hudSystem.showEvent("ZOMBIE BLINDED", 1.0);
+            }
+        }
+
+        if (game.state.flashlightBatterySeconds > 0.0f
+                && game.smilingManSystem.tryBlindFromFlashlight(origin, forward, game.getLocalPlayerId())) {
+            consumeFlashlightBattery(GameConstants.FLASHLIGHT_BLIND_BATTERY_COST);
+        }
+    }
+
+    private void updateFlashlightBlindCooldowns(float dt) {
+        if (game.state.flashlightBlindCooldowns.isEmpty()) return;
+        ArrayList<UUID> done = new ArrayList<>();
+        for (Map.Entry<UUID, Double> entry : game.state.flashlightBlindCooldowns.entrySet()) {
+            double value = entry.getValue() - dt;
+            if (value <= 0.0) done.add(entry.getKey());
+            else entry.setValue(value);
+        }
+        for (UUID id : done) game.state.flashlightBlindCooldowns.remove(id);
+    }
+
+    private boolean isFlashlightBeamActive() {
+        return game.state.hasFlashlight
+                && game.state.equippedItem == GameConstants.ITEM_FLASHLIGHT
+                && game.state.flashlightOn
+                && game.state.flashlightBatterySeconds > 0.0f
+                && game.assets.flashlight != null;
+    }
+
+    private Vector3f getFlashlightBeamOrigin() {
+        return new Vector3f(game.assets.flashlight.getWorldLocation())
+                .add(new Vector3f(getFlashlightBeamDirection()).mul(game.state.flashlightBeamForwardOffset))
+                .add(0f, game.state.flashlightBeamLift, 0f);
+    }
+
+    private Vector3f getFlashlightBeamDirection() {
+        Vector3f forward = new Vector3f(game.avatarForward());
+        forward.y = 0f;
+        if (forward.lengthSquared() < 0.0001f) forward.set(0f, 0f, -1f);
+        return forward.normalize();
+    }
+
+    private boolean isPointInFlashlightBeam(Vector3f origin, Vector3f forward, Vector3f point) {
+        Vector3f toPoint = new Vector3f(point).sub(origin);
+        float distance = toPoint.length();
+        if (distance > GameConstants.FLASHLIGHT_BLIND_RANGE || distance < 0.0001f) return false;
+        toPoint.div(distance);
+        return forward.dot(toPoint) >= GameConstants.FLASHLIGHT_BLIND_DOT;
     }
 
     public void updateEquippedItemVisibility() {
@@ -479,7 +636,7 @@ public class MyGameItemSystem {
             game.state.protClient.sendHealthMessage(game.state.health);
         }
     }
-    private float getFlashlightCarryScale() { return isPlayerModel2() ? 0.14f : 0.18f; }
+    private float getFlashlightCarryScale() { return isPlayerModel2() ? 0.18f : 0.23f; }
     private float getFlashlightCarrySideOffset() { return isPlayerModel2() ? -1.18f : -0.95f; }
     private float getFlashlightCarryForwardOffset() { return isPlayerModel2() ? 0.08f : 0.10f; }
     private float getFlashlightCarryHeight() { return isPlayerModel2() ? 1.14f : 1.34f; }
