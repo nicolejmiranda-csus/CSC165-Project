@@ -599,12 +599,11 @@ public class MyGameSmilingManSystem {
         if (!smilingManAssetsUsable()) return false;
 
         ArrayList<MyGameSmilingManHumanTarget> humans = getHumanTargets();
-        if (humans.isEmpty()) return false;
 
         Vector3f spawn = null;
         for (int i = 0; i < 80; i++) {
             Vector3f candidate = game.worldBuilder.randomSpawnLocation(true);
-            if (tooCloseToHumans(candidate, humans, 18f)) continue;
+            if (!humans.isEmpty() && tooCloseToHumans(candidate, humans, 18f)) continue;
             if (tooCloseToOtherSmilingMen(candidate, 15f)) continue;
             if (game.physicsSystem.isNpcBlockedByWorld(candidate, NPC_RADIUS)) continue;
             spawn = candidate;
@@ -770,13 +769,30 @@ public class MyGameSmilingManSystem {
     private boolean isNetworkOwner() {
         if (!game.state.isMultiplayer || !game.state.isClientConnected) return true;
         UUID localId = game.getLocalPlayerId();
-        UUID owner = localId;
+        UUID owner = game.isLocalHumanTarget() ? localId : null;
         if (game.state.gm != null) {
             for (GhostAvatar ghost : game.getGhostManager().getGhostAvatarsSnapshot()) {
-                if (ghost.getID().toString().compareTo(owner.toString()) < 0) owner = ghost.getID();
+                UUID id = ghost.getID();
+                if (!isRemoteHumanTarget(id)) continue;
+                if (owner == null || id.toString().compareTo(owner.toString()) < 0) owner = id;
+            }
+        }
+        if (owner == null) {
+            owner = localId;
+            if (game.state.gm != null) {
+                for (GhostAvatar ghost : game.getGhostManager().getGhostAvatarsSnapshot()) {
+                    UUID id = ghost.getID();
+                    if (id.toString().compareTo(owner.toString()) < 0) owner = id;
+                }
             }
         }
         return localId.equals(owner);
+    }
+
+    private boolean isRemoteHumanTarget(UUID id) {
+        if (id == null) return false;
+        if (game.state.remoteZombieStates.getOrDefault(id, false)) return false;
+        return game.state.remoteHealthStates.getOrDefault(id, game.state.maxHealth) > 0;
     }
 
     private void faceTarget(MyGameSmilingManAgent agent, float dt, float turnRate) {
