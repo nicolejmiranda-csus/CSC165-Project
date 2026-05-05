@@ -46,8 +46,11 @@ public class RenderSystem extends JFrame implements GLEventListener {
 
 	private int renderingProgram, skyboxProgram, lineProgram;
 	private int heightProgram, skelProgram;
+	private int screenFlashProgram;
 	private int[] vao = new int[1];
 	private int[] vbo = new int[3];
+	private int[] screenFlashVao = new int[1];
+	private int[] screenFlashVbo = new int[1];
 
 	private int defaultSkyBox;
 
@@ -291,6 +294,30 @@ public class RenderSystem extends JFrame implements GLEventListener {
 
 		gl.glClear(GL_DEPTH_BUFFER_BIT);
 		(engine.getHUDmanager()).drawHUDs();
+		drawScreenFlashOverlay(gl, engine.getGame().getScreenFlashOpacity());
+	}
+
+	private void drawScreenFlashOverlay(GL4 gl, float opacity) {
+		if (opacity <= 0.001f || screenFlashProgram == 0) return;
+		float alpha = Math.max(0.0f, Math.min(1.0f, opacity));
+
+		gl.glUseProgram(screenFlashProgram);
+		int opacityLoc = gl.glGetUniformLocation(screenFlashProgram, "opacity");
+		int colorLoc = gl.glGetUniformLocation(screenFlashProgram, "overlayColor");
+		int vignetteLoc = gl.glGetUniformLocation(screenFlashProgram, "vignette");
+		gl.glUniform1f(opacityLoc, alpha);
+		Vector3f color = engine.getGame().getScreenFlashColor();
+		gl.glUniform3f(colorLoc, color.x, color.y, color.z);
+		gl.glUniform1f(vignetteLoc, engine.getGame().getScreenFlashVignette());
+
+		gl.glDisable(GL_DEPTH_TEST);
+		gl.glEnable(GL_BLEND);
+		gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		gl.glBindVertexArray(screenFlashVao[0]);
+		gl.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		gl.glBindVertexArray(0);
+		gl.glDisable(GL_BLEND);
+		gl.glEnable(GL_DEPTH_TEST);
 	}
 
 	private void constructViewport(Viewport vp) {
@@ -359,6 +386,9 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		skelProgram = Utils.createShaderProgram("assets/shaders/skeletalVert.glsl",
 				"assets/shaders/StandardFrag.glsl");
 
+		screenFlashProgram = Utils.createShaderProgram("assets/shaders/ScreenFlashVert.glsl",
+				"assets/shaders/ScreenFlashFrag.glsl");
+
 		objectRendererStandard = new RenderObjectStandard(engine);
 		objectRendererSkyBox = new RenderObjectSkyBox(engine);
 		objectRendererLine = new RenderObjectLine(engine);
@@ -385,6 +415,7 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		(engine.getGame()).initializePhysicsObjects();
 
 		loadVBOs();
+		loadScreenFlashVBO();
 
 		engine.setGLstarted();
 		(engine.getLightManager()).loadLightsSSBOinitial();
@@ -455,6 +486,25 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		FloatBuffer vertBuf = Buffers.newDirectFloatBuffer(go.getShape().getVertices());
 		gl.glBufferData(GL_ARRAY_BUFFER, vertBuf.limit() * 4, vertBuf, GL_STATIC_DRAW);
 		go.getShape().setVertexBuffer(vbo[0]);
+	}
+
+	private void loadScreenFlashVBO() {
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		float[] quad = {
+				-1.0f, -1.0f,
+				 1.0f, -1.0f,
+				-1.0f,  1.0f,
+				 1.0f,  1.0f
+		};
+		gl.glGenVertexArrays(1, screenFlashVao, 0);
+		gl.glGenBuffers(1, screenFlashVbo, 0);
+		gl.glBindVertexArray(screenFlashVao[0]);
+		gl.glBindBuffer(GL_ARRAY_BUFFER, screenFlashVbo[0]);
+		FloatBuffer quadBuf = Buffers.newDirectFloatBuffer(quad);
+		gl.glBufferData(GL_ARRAY_BUFFER, quadBuf.limit() * 4, quadBuf, GL_STATIC_DRAW);
+		gl.glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+		gl.glBindVertexArray(0);
 	}
 
 	// ------------------ TEXTURE SECTION ---------------------

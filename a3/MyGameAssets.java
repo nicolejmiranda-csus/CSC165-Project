@@ -16,6 +16,8 @@ public class MyGameAssets {
     TerrainPlane terrainShape;
     AnimatedShape playerModel1AnimatedS;
     AnimatedShape[] playerModel1GhostAnimatedS;
+    AnimatedShape smilingManAnimatedS;
+    AnimatedShape[] smilingManAnimatedShapes;
     AnimatedShape playerModel2AnimatedS;
     AnimatedShape[] playerModel2GhostAnimatedS;
     ObjShape playerModel1S, playerModel2S, flashlightS, tableS, healthPotionS, dolphinS;
@@ -25,13 +27,18 @@ public class MyGameAssets {
 
     // Textures
     TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, zombiePlayerModel2Tx, healthPotionTx;
+    TextureImage smilingManTx;
     TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx, dolphinTx;
-    TextureImage woodBlockTx, rockTx, hoodTx, babyZombieTx;
+    TextureImage[] heightMapTextures;
+    int activeHeightMapIndex = 0;
+    TextureImage woodBlockTx, metalBuildTx, glassBuildTx, rockTx, hoodTx, babyZombieTx;
     TextureImage rockTx2, leafTx, deadOakTreeTx, deadSpruceTreeTx, oakTreeTx, spruceTreeTx, treeWoodTx;
     TextureImage[] sceneryRockTx, sceneryTreeTx;
 
     // Scene objects
     GameObject avatar;
+    GameObject smilingMan;
+    final ArrayList<GameObject> smilingMen = new ArrayList<>();
     GameObject healthPotion;
     GameObject terrain;
     GameObject flashlight;
@@ -40,6 +47,8 @@ public class MyGameAssets {
     GameObject table;
     GameObject axisX, axisY, axisZ;
     GameObject buildPreview;
+    final ArrayList<GameObject> tableCovers = new ArrayList<>();
+    final ArrayList<MyGameBuildMeta> staticCoverBuilds = new ArrayList<>();
     final ArrayList<GameObject> healthPotions = new ArrayList<>();
     final ArrayList<GameObject> flashlights = new ArrayList<>();
     final ArrayList<GameObject> sceneryProps = new ArrayList<>();

@@ -19,7 +19,7 @@ class ServerGameState {
     private static final long INTERMISSION_MS = 30000L;
     private static final long POST_ROUND_MS = 5000L;
     private static final long ROUND_MS = 300000L;
-    private static final float PICKUP_SPAWN_RADIUS = 90.0f;
+    private static final float PICKUP_SPAWN_RADIUS = GameConstants.WORLD_EDGE_LIMIT - 18.0f;
     private static final float PICKUP_MIN_CENTER_DISTANCE = 10.0f;
     private static final float PICKUP_MIN_ITEM_DISTANCE = 8.0f;
 
@@ -99,6 +99,7 @@ class ServerGameState {
         if (!players.contains(sourceId) || !players.contains(targetId)) return;
         if (!zombieStates.getOrDefault(sourceId, false)) return;
         if (zombieStates.getOrDefault(targetId, false)) return;
+        if (tryLastChanceEscape(targetId)) return;
 
         zombieStates.put(targetId, true);
         healthStates.put(targetId, 0);
@@ -178,12 +179,54 @@ class ServerGameState {
         broadcastExcept("slow," + sourceId + "," + targetId + "," + clampedSeconds, sourceId);
     }
 
+    synchronized void onBlind(UUID sourceId, UUID targetId, float seconds) {
+        if (!players.contains(sourceId) || !players.contains(targetId)) return;
+        boolean sourceZombie = zombieStates.getOrDefault(sourceId, false);
+        boolean targetZombie = zombieStates.getOrDefault(targetId, false);
+        if (sourceZombie || !targetZombie) return;
+        float clampedSeconds = Math.max(0.25f, Math.min(2.0f, seconds));
+        broadcastExcept("blind," + sourceId + "," + targetId + "," + clampedSeconds, sourceId);
+    }
+
+    synchronized void onSmilingManDamage(UUID sourceId, UUID targetId, int amount) {
+        if (!roundActive || !players.contains(sourceId) || !players.contains(targetId)) return;
+        if (zombieStates.getOrDefault(targetId, false)) return;
+        int clampedAmount = Math.max(1, Math.min(100, amount));
+        int newHealth = Math.max(0, healthStates.getOrDefault(targetId, 100) - clampedAmount);
+        if (newHealth <= 0 && tryLastChanceEscape(targetId)) return;
+        healthStates.put(targetId, newHealth);
+        broadcastAll("health," + targetId + "," + newHealth);
+        if (newHealth <= 0) {
+            zombieStates.put(targetId, true);
+            invisibleStates.put(targetId, false);
+            broadcastAll("role," + targetId + ",1");
+            checkZombieWin();
+        }
+    }
+
+    private boolean tryLastChanceEscape(UUID playerId) {
+        if (!roundActive || playerId == null) return false;
+        if (playerId.equals(startingZombieId)) return false;
+        if (zombieStates.getOrDefault(playerId, false)) return false;
+        if (random.nextFloat() >= GameConstants.HUMAN_LAST_CHANCE_ESCAPE_CHANCE) return false;
+
+        zombieStates.put(playerId, false);
+        healthStates.put(playerId, GameConstants.HUMAN_LAST_CHANCE_ESCAPE_HEALTH);
+        invisibleStates.put(playerId, false);
+        broadcastAll("escape," + playerId);
+        broadcastAll("role," + playerId + ",0");
+        broadcastAll("health," + playerId + "," + GameConstants.HUMAN_LAST_CHANCE_ESCAPE_HEALTH);
+        broadcastAll("ability," + playerId + ",invis,0");
+        return true;
+    }
+
     private boolean roleCanCollectPickup(UUID playerId, int pickupType) {
         boolean zombie = zombieStates.getOrDefault(playerId, false);
         if (pickupType == GameConstants.PICKUP_INVIS || pickupType == GameConstants.PICKUP_BABY_ZOMBIE) {
             return zombie;
         }
         if (pickupType == GameConstants.PICKUP_DASH || pickupType == GameConstants.PICKUP_BUILD
+                || pickupType == GameConstants.PICKUP_BUILD_METAL || pickupType == GameConstants.PICKUP_BUILD_GLASS
                 || pickupType == GameConstants.PICKUP_ROCK || pickupType == GameConstants.PICKUP_FLASHLIGHT
                 || pickupType == GameConstants.PICKUP_POTION) {
             return !zombie;
@@ -345,13 +388,9 @@ class ServerGameState {
     }
 
     private String buildMessage(UUID playerId, String[] buildData, String command) {
-        return command + "," + playerId
-                + "," + buildData[0]
-                + "," + buildData[1]
-                + "," + buildData[2]
-                + "," + buildData[3]
-                + "," + buildData[4]
-                + "," + buildData[5];
+        String message = command + "," + playerId;
+        for (String value : buildData) message += "," + value;
+        return message;
     }
 
     private void resetRoundState() {

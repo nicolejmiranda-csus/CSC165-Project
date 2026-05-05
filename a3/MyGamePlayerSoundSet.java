@@ -19,14 +19,18 @@ class MyGamePlayerSoundSet {
         this.guyBreath = guyBreath;
     }
 
-    void update(Vector3f location, boolean walking, boolean running, boolean zombie, boolean playerModel2) {
+    void update(Vector3f location, boolean walking, boolean running, boolean zombie, boolean playerModel2, float panicIntensity) {
         Vector3f source = new Vector3f(location).add(0f, 1.0f, 0f);
         boolean humanRunning = running && !zombie;
+        boolean panicking = !zombie && panicIntensity > 0.05f;
         setLoop(walk, source, walking && !running);
         setLoop(run, source, running);
         setLoop(zombieBreath, source, running && zombie);
-        setLoop(girlBreath, source, humanRunning && playerModel2);
-        setLoop(guyBreath, source, humanRunning && !playerModel2);
+        int breathVolume = 42 + Math.round(46f * Math.max(0f, Math.min(1f, panicIntensity)));
+        setVolume(girlBreath, breathVolume);
+        setVolume(guyBreath, breathVolume);
+        setLoop(girlBreath, source, (humanRunning || panicking) && playerModel2);
+        setLoop(guyBreath, source, (humanRunning || panicking) && !playerModel2);
     }
 
     void stopAll() {
@@ -54,6 +58,14 @@ class MyGamePlayerSoundSet {
         if (sound == null) return;
         try {
             if (sound.getIsPlaying()) sound.stop();
+        } catch (RuntimeException ignored) {
+        }
+    }
+
+    private void setVolume(Sound sound, int volume) {
+        if (sound == null) return;
+        try {
+            sound.setVolume(volume);
         } catch (RuntimeException ignored) {
         }
     }

@@ -188,16 +188,11 @@ public class RenderObjectStandard
 		{	gl.glEnable(GL_BLEND);
 			gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 			gl.glBlendEquation(GL_FUNC_ADD);
-			gl.glEnable(GL_CULL_FACE);
-			
-			gl.glCullFace(GL_FRONT);
-			gl.glProgramUniform1f(renderingProgram, flipLoc, -1.0f);
-			gl.glDrawArrays(GL_TRIANGLES, 0, go.getShape().getNumVertices());
-		
-			gl.glCullFace(GL_BACK);
+			gl.glDepthMask(false);
+			gl.glDisable(GL_CULL_FACE);
 			gl.glProgramUniform1f(renderingProgram, flipLoc, 1.0f);
 			gl.glDrawArrays(GL_TRIANGLES, 0, go.getShape().getNumVertices());
-
+			gl.glDepthMask(true);
 			gl.glDisable(GL_BLEND);
 		} else
 		{	gl.glDisable(GL_BLEND);

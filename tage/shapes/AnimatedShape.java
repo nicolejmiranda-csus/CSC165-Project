@@ -29,6 +29,8 @@ import java.io.*;
  */
 public final class AnimatedShape extends ObjShape
 {
+	public static final int MAX_SKIN_BONES = 256;
+
 	/** Specifies what happens when reaching the end of an animation. */
 	public enum EndType
 	{	NONE,    // Default (equivalent in function to STOP)
@@ -59,6 +61,7 @@ public final class AnimatedShape extends ObjShape
 	private List<Integer> boneParentsList = new ArrayList<>();
 	private List<Float> boneInverseBindMatricesList = new ArrayList<>();
 	private tage.rml.Matrix4[] boneInverseBindMatrices;
+	private tage.rml.Matrix4[] boneBindMatrices;
 	private boolean hasMatrixBindPose = false;
 
 	// animation data
@@ -71,6 +74,7 @@ public final class AnimatedShape extends ObjShape
 	private int curAnimEndTypeTotal = -1;  // how many times to loop (0 for forever)
 	private int curAnimEndTypeCount = 0;   // how many time have we looped
 	private boolean curAnimPaused = false;
+	private boolean warnedLegacyRigifyAnimation = false;
 
 	// Current Skeleton Pose Skinning Matrices.
 	// This array holds a list of 4x4 matrices.
@@ -78,8 +82,8 @@ public final class AnimatedShape extends ObjShape
 	// This instance of this list of matrices is updated every frame.
 	// The IT version is inverse-transpose, for modifying the normal vectors.
 
-	private tage.rml.Matrix4[] curSkinMatrices = new tage.rml.Matrix4[128];
-	private tage.rml.Matrix3[] curSkinMatricesIT = new tage.rml.Matrix3[128];
+	private tage.rml.Matrix4[] curSkinMatrices = new tage.rml.Matrix4[MAX_SKIN_BONES];
+	private tage.rml.Matrix3[] curSkinMatricesIT = new tage.rml.Matrix3[MAX_SKIN_BONES];
 
 	/** Specifies filenames for the model (with extension "rkm") and the skeleton (with extension "rks"). */
 	public AnimatedShape(String meshPath, String skelPath)
@@ -286,17 +290,21 @@ public final class AnimatedShape extends ObjShape
 			hasMatrixBindPose = matrixBindPoseBoneCount == boneCount;
 			if (hasMatrixBindPose)
 			{	boneInverseBindMatrices = new tage.rml.Matrix4[boneCount];
+				boneBindMatrices = new tage.rml.Matrix4[boneCount];
 				for (int i = 0; i < boneCount; i++)
 				{	float[] values = new float[16];
 					for (int j = 0; j < 16; j++)
 						values[j] = boneInverseBindMatricesList.get(i * 16 + j);
 					boneInverseBindMatrices[i] = tage.rml.Matrix4f.createFrom(values);
+					boneBindMatrices[i] = boneInverseBindMatrices[i].inverse();
 				}
 			}
 		}
 		catch (IOException e)
 		{	throw new RuntimeException(e);
 		}
+
+		repairRigifyCompactParents();
 
 		skel.setBoneCount(boneCount);
 		skel.setBoneNames(toStringArray(boneNamesList));
@@ -333,6 +341,20 @@ public final class AnimatedShape extends ObjShape
 				{	System.out.println("WARNING: skipped animation \"" + animationName + "\" from file \""
 						+ animationPath + "\" because it has " + animationBoneCount
 						+ " bones but the loaded skeleton has " + skeletonBoneCount + ".");
+					return;
+				}
+				if (matrixFrames && !hasMatrixBindPose)
+				{	System.out.println("WARNING: skipped MATRIX4 animation \"" + animationName + "\" from file \""
+						+ animationPath + "\" because the loaded skeleton does not include inverse bind matrices.");
+					return;
+				}
+				if (!matrixFrames && isRigifyLikeSkeleton())
+				{	if (!warnedLegacyRigifyAnimation)
+					{	warnedLegacyRigifyAnimation = true;
+						System.out.println("WARNING: skipped legacy Rigify animation data for skeleton with "
+							+ skeletonBoneCount + " bones. Re-export the .rks with inverse bind matrices and "
+							+ "the .rka files as MATRIX4 animations.");
+					}
 					return;
 				}
 				boneCount = animationBoneCount;
@@ -388,15 +410,16 @@ public final class AnimatedShape extends ObjShape
 
 	private void updateCurrentPoseMatrices()
 	{	if (curAnimation != null && curAnimation.usesMatrixFrames() && hasMatrixBindPose)
-		{	for (int i = 0; i < boneCount; i++)
-			{	tage.rml.Matrix4 poseMatrix = curAnimation.getFrameBoneMatrix(curAnimFrame, i);
-				curSkinMatrices[i] = poseMatrix.mult(boneInverseBindMatrices[i]);
-				curSkinMatricesIT[i] = curSkinMatrices[i].inverse().transpose().toMatrix3();
-			}
+		{	int poseBoneCount = java.lang.Math.min(boneCount, MAX_SKIN_BONES);
+			if (isRigifyLikeSkeleton())
+				updateMatrixPoseSkinningWithoutRigifyStretch(poseBoneCount);
+			else
+				updateMatrixPoseSkinning(poseBoneCount);
 			return;
 		}
 
-		for (int i = 0; i < boneCount; i++)
+		int poseBoneCount = java.lang.Math.min(boneCount, MAX_SKIN_BONES);
+		for (int i = 0; i < poseBoneCount; i++)
 		{	tage.rml.Matrix4 mat;
 
 			// 1) get inverse of bone's local-space to model space
@@ -416,6 +439,50 @@ public final class AnimatedShape extends ObjShape
 			curSkinMatrices[i] = mat;
 			curSkinMatricesIT[i] = curSkinMatrices[i].inverse().transpose().toMatrix3();
 		}
+	}
+
+	private void updateMatrixPoseSkinning(int poseBoneCount)
+	{	for (int i = 0; i < poseBoneCount; i++)
+		{	tage.rml.Matrix4 poseMatrix = curAnimation.getFrameBoneMatrix(curAnimFrame, i);
+			curSkinMatrices[i] = poseMatrix.mult(boneInverseBindMatrices[i]);
+			curSkinMatricesIT[i] = curSkinMatrices[i].inverse().transpose().toMatrix3();
+		}
+	}
+
+	private void updateMatrixPoseSkinningWithoutRigifyStretch(int poseBoneCount)
+	{	tage.rml.Matrix4[] noStretchPoseMatrices = new tage.rml.Matrix4[poseBoneCount];
+
+		for (int i = 0; i < poseBoneCount; i++)
+		{	tage.rml.Matrix4 poseMatrix = removeMatrixScaleAndShear(curAnimation.getFrameBoneMatrix(curAnimFrame, i));
+			int parentIndex = skel.getBoneParentIndex(i);
+			if (parentIndex >= 0 && parentIndex < poseBoneCount && noStretchPoseMatrices[parentIndex] != null
+					&& boneBindMatrices != null && parentIndex < boneInverseBindMatrices.length && i < boneBindMatrices.length)
+			{	poseMatrix = rebuildPoseTranslationFromRestParent(
+					poseMatrix,
+					noStretchPoseMatrices[parentIndex],
+					boneInverseBindMatrices[parentIndex],
+					boneBindMatrices[i]);
+			}
+
+			noStretchPoseMatrices[i] = poseMatrix;
+			curSkinMatrices[i] = poseMatrix.mult(boneInverseBindMatrices[i]);
+			curSkinMatricesIT[i] = curSkinMatrices[i].inverse().transpose().toMatrix3();
+		}
+	}
+
+	private tage.rml.Matrix4 rebuildPoseTranslationFromRestParent(
+			tage.rml.Matrix4 poseMatrix,
+			tage.rml.Matrix4 parentPoseMatrix,
+			tage.rml.Matrix4 parentInverseBindMatrix,
+			tage.rml.Matrix4 bindMatrix)
+	{	tage.rml.Matrix4 restRelativeToParent = parentInverseBindMatrix.mult(bindMatrix);
+		tage.rml.Vector4 restOffset = tage.rml.Vector4f.createFrom(
+			restRelativeToParent.value(0, 3),
+			restRelativeToParent.value(1, 3),
+			restRelativeToParent.value(2, 3),
+			1.0f);
+		tage.rml.Vector4 posePosition = parentPoseMatrix.mult(restOffset);
+		return replaceMatrixTranslation(poseMatrix, posePosition.x(), posePosition.y(), posePosition.z());
 	}
 
 	//====================================================
@@ -486,6 +553,96 @@ public final class AnimatedShape extends ObjShape
 		// 3) Apply translation 3rd
 		mat = tage.rml.Matrix4f.createTranslationFrom(loc).mult(mat);
 		return mat;
+	}
+
+	private tage.rml.Matrix4 removeMatrixScaleAndShear(tage.rml.Matrix4 matrix)
+	{	float x0 = matrix.value(0, 0);
+		float x1 = matrix.value(1, 0);
+		float x2 = matrix.value(2, 0);
+		float y0 = matrix.value(0, 1);
+		float y1 = matrix.value(1, 1);
+		float y2 = matrix.value(2, 1);
+		float originalZ0 = matrix.value(0, 2);
+		float originalZ1 = matrix.value(1, 2);
+		float originalZ2 = matrix.value(2, 2);
+
+		float xLen = vectorLength(x0, x1, x2);
+		if (xLen < 0.00001f)
+		{	x0 = 1.0f; x1 = 0.0f; x2 = 0.0f;
+		}
+		else
+		{	x0 /= xLen; x1 /= xLen; x2 /= xLen;
+		}
+
+		float xyDot = dot(x0, x1, x2, y0, y1, y2);
+		y0 -= x0 * xyDot;
+		y1 -= x1 * xyDot;
+		y2 -= x2 * xyDot;
+
+		float yLen = vectorLength(y0, y1, y2);
+		if (yLen < 0.00001f)
+		{	if (java.lang.Math.abs(x0) < 0.9f)
+			{	y0 = 1.0f; y1 = 0.0f; y2 = 0.0f;
+			}
+			else
+			{	y0 = 0.0f; y1 = 1.0f; y2 = 0.0f;
+			}
+			xyDot = dot(x0, x1, x2, y0, y1, y2);
+			y0 -= x0 * xyDot;
+			y1 -= x1 * xyDot;
+			y2 -= x2 * xyDot;
+			yLen = vectorLength(y0, y1, y2);
+		}
+		y0 /= yLen; y1 /= yLen; y2 /= yLen;
+
+		float z0 = x1 * y2 - x2 * y1;
+		float z1 = x2 * y0 - x0 * y2;
+		float z2 = x0 * y1 - x1 * y0;
+		float zLen = vectorLength(z0, z1, z2);
+		if (zLen < 0.00001f)
+		{	z0 = originalZ0; z1 = originalZ1; z2 = originalZ2;
+			zLen = vectorLength(z0, z1, z2);
+		}
+		if (zLen < 0.00001f)
+		{	z0 = 0.0f; z1 = 0.0f; z2 = 1.0f;
+		}
+		else
+		{	z0 /= zLen; z1 /= zLen; z2 /= zLen;
+		}
+
+		if (dot(z0, z1, z2, originalZ0, originalZ1, originalZ2) < 0.0f)
+		{	z0 = -z0; z1 = -z1; z2 = -z2;
+		}
+
+		y0 = z1 * x2 - z2 * x1;
+		y1 = z2 * x0 - z0 * x2;
+		y2 = z0 * x1 - z1 * x0;
+
+		float[] values =
+		{	x0, x1, x2, 0.0f,
+			y0, y1, y2, 0.0f,
+			z0, z1, z2, 0.0f,
+			matrix.value(0, 3), matrix.value(1, 3), matrix.value(2, 3), matrix.value(3, 3)
+		};
+		return tage.rml.Matrix4f.createFrom(values);
+	}
+
+	private tage.rml.Matrix4 replaceMatrixTranslation(tage.rml.Matrix4 matrix, float x, float y, float z)
+	{	float[] values =
+		{	matrix.value(0, 0), matrix.value(1, 0), matrix.value(2, 0), 0.0f,
+			matrix.value(0, 1), matrix.value(1, 1), matrix.value(2, 1), 0.0f,
+			matrix.value(0, 2), matrix.value(1, 2), matrix.value(2, 2), 0.0f,
+			x, y, z, 1.0f
+		};
+		return tage.rml.Matrix4f.createFrom(values);
+	}
+
+	private float vectorLength(float x, float y, float z)
+	{	return (float) java.lang.Math.sqrt(x * x + y * y + z * z);
+	}
+
+	private float dot(float ax, float ay, float az, float bx, float by, float bz)
+	{	return ax * bx + ay * by + az * bz;
 	}
 
 	// Returns the Quaternion's axis, if is not the identity quaternion, else (1,0,0)
@@ -693,15 +850,89 @@ public final class AnimatedShape extends ObjShape
 	}
 
 	private void safeReset()
-	{	boneCount = 0;
-		boneNamesList.clear();
+	{	boneNamesList.clear();
 		boneLengthsList.clear();
 		boneRestRotationsList.clear();
 		boneRestLocationsList.clear();
 		boneParentsList.clear();
 		boneInverseBindMatricesList.clear();
-		boneInverseBindMatrices = null;
-		hasMatrixBindPose = false;
+	}
+
+	private void repairRigifyCompactParents()
+	{	if (!isRigifyLikeBoneNamesList())
+			return;
+
+		HashMap<String, Integer> boneIndices = new HashMap<>();
+		for (int i = 0; i < boneNamesList.size(); i++)
+			boneIndices.put(boneNamesList.get(i), i);
+
+		String rootName = boneIndices.containsKey("root") ? "root" : null;
+		String firstSpineName = boneIndices.containsKey("DEF-spine") ? "DEF-spine" : rootName;
+		String lastSpineName = firstSpineName;
+		for (String name : boneNamesList)
+		{	if (name.equals("DEF-spine") || name.startsWith("DEF-spine."))
+				lastSpineName = name;
+		}
+
+		setRigifyParentIfPresent(boneIndices, "DEF-spine", rootName);
+		for (String side : new String[] {"L", "R"})
+		{	setRigifyParentIfPresent(boneIndices, "DEF-pelvis." + side, firstSpineName, rootName);
+			setRigifyParentIfPresent(boneIndices, "DEF-thigh." + side, "DEF-pelvis." + side, firstSpineName, rootName);
+			setRigifyParentIfPresent(boneIndices, "DEF-thigh." + side + ".001", "DEF-thigh." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-shin." + side, "DEF-thigh." + side + ".001", "DEF-thigh." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-shin." + side + ".001", "DEF-shin." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-foot." + side, "DEF-shin." + side + ".001", "DEF-shin." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-toe." + side, "DEF-foot." + side);
+
+			setRigifyParentIfPresent(boneIndices, "DEF-shoulder." + side, lastSpineName, firstSpineName, rootName);
+			setRigifyParentIfPresent(boneIndices, "DEF-upper_arm." + side, "DEF-shoulder." + side, lastSpineName, firstSpineName, rootName);
+			setRigifyParentIfPresent(boneIndices, "DEF-upper_arm." + side + ".001", "DEF-upper_arm." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-forearm." + side, "DEF-upper_arm." + side + ".001", "DEF-upper_arm." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-forearm." + side + ".001", "DEF-forearm." + side);
+			setRigifyParentIfPresent(boneIndices, "DEF-hand." + side, "DEF-forearm." + side + ".001", "DEF-forearm." + side);
+		}
+	}
+
+	private void setRigifyParentIfPresent(HashMap<String, Integer> boneIndices, String childName, String... parentNames)
+	{	Integer childIndex = boneIndices.get(childName);
+		if (childIndex == null)
+			return;
+
+		for (String parentName : parentNames)
+		{	if (parentName == null)
+				continue;
+			Integer parentIndex = boneIndices.get(parentName);
+			if (parentIndex != null && parentIndex < childIndex)
+			{	boneParentsList.set(childIndex, parentIndex);
+				return;
+			}
+		}
+	}
+
+	private boolean isRigifyLikeBoneNamesList()
+	{	int rigifyNames = 0;
+		for (String name : boneNamesList)
+		{	if (name == null) continue;
+			if (name.startsWith("DEF-") || name.startsWith("ORG-") || name.startsWith("MCH-")
+					|| name.startsWith("VIS_") || name.contains("_ik") || name.contains("_fk")
+					|| name.startsWith("tweak_"))
+				rigifyNames++;
+		}
+		return rigifyNames >= 8;
+	}
+
+	private boolean isRigifyLikeSkeleton()
+	{	String[] names = skel.getBoneNames();
+		if (names == null) return false;
+		int rigifyNames = 0;
+		for (String name : names)
+		{	if (name == null) continue;
+			if (name.startsWith("DEF-") || name.startsWith("ORG-") || name.startsWith("MCH-")
+					|| name.startsWith("VIS_") || name.contains("_ik") || name.contains("_fk")
+					|| name.startsWith("tweak_"))
+				rigifyNames++;
+		}
+		return rigifyNames >= 8;
 	}
 
 	// ------------- ACCESSORS -----------------

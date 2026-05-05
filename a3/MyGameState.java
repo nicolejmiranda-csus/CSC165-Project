@@ -32,12 +32,16 @@ public class MyGameState {
     boolean hasFlashlight = false;
     boolean hasPotion = false;
     boolean flashlightOn = false;
+    float flashlightBatterySeconds = GameConstants.FLASHLIGHT_BATTERY_SECONDS;
     boolean potionUsed = false;
     int equippedItem = GameConstants.ITEM_NONE;
 
     int helpPage = 0;
     String eventMsg = "";
     double eventHold = 0.0;
+    double stareWarningTimer = 0.0;
+    double zombieTrackerTimer = 0.0;
+    String zombieTrackerText = "";
 
     float runHoldTime = 0.0f;
 
@@ -77,6 +81,7 @@ public class MyGameState {
     int buildModeType = 0;
     int buildPieceType = 0;
     int buildRoofDir = 0;
+    int buildMaterialType = GameConstants.BUILD_MATERIAL_WOOD;
     final ArrayList<GameObject> placedWalls = new ArrayList<>();
     final HashMap<String, GameObject> wallMap = new HashMap<>();
 
@@ -93,6 +98,7 @@ public class MyGameState {
     boolean matchHumanWon = false;
     boolean matchZombieWon = false;
     boolean localPlayerZombie = false;
+    UUID roundStartingZombieId;
     final UUID offlineLocalId = UUID.nameUUIDFromBytes("offline-local-player".getBytes());
     final HashMap<UUID, Boolean> remoteZombieStates = new HashMap<>();
     final HashMap<UUID, Boolean> remoteInvisibleStates = new HashMap<>();
@@ -106,8 +112,12 @@ public class MyGameState {
     final int maxBabyZombieCharges = 2;
     int invisCharges = 0;
     int buildMaterials = 0;
+    int metalBuildMaterials = 0;
+    int glassBuildMaterials = 0;
     double invisTimer = 0.0;
     double slowTimer = 0.0;
+    double blindTimer = 0.0;
+    double blindCooldownTimer = 0.0;
     double projectileCooldown = 0.0;
     double buildAttackCooldown = 0.0;
     final double invisDuration = 5.0;
@@ -120,6 +130,7 @@ public class MyGameState {
     final float zombieRunSpeed = 8.8f;
     final float slowedSpeedMultiplier = 0.45f;
     final float dashDistance = 7.0f;
+    final HashMap<UUID, Double> flashlightBlindCooldowns = new HashMap<>();
 
     Robot robot;
     boolean mouseModeInitiated = false;
