@@ -231,11 +231,12 @@ public class MyGameWorldBuilder {
         if (a.heightMapTextures == null || a.heightMapTextures.length == 0 || a.terrain == null) return;
         int index = chooseHeightMapIndex(zombieId, roundToken, a.heightMapTextures.length);
         if (index < 0 || index >= a.heightMapTextures.length) index = 0;
+        if (a.heightMaptx == a.heightMapTextures[index] && a.activeHeightMapIndex == index) return;
         a.activeHeightMapIndex = index;
         a.heightMaptx = a.heightMapTextures[index];
         a.terrain.setHeightMap(a.heightMaptx);
         game.physicsSystem.rebuildTerrainPhysics();
-        game.itemSystem.replantEnvironmentForCurrentTerrain();
+        game.itemSystem.requestEnvironmentReplant();
         game.hudSystem.showEvent("MAP " + (index + 1), 1.0);
     }
 
@@ -339,10 +340,10 @@ public class MyGameWorldBuilder {
         float run = halfSlant * (float) Math.cos(roofAngle) * 2.0f;
         float rise = halfSlant * (float) Math.sin(roofAngle) * 2.0f;
         float lowerY = rise * 0.5f + 0.05f;
-        float upperY = lowerY + rise;
-        float centerStep = run * 0.98f;
-        addCoverRoof(base, yaw, 0f, lowerY, -centerStep * 0.5f * direction, roofDir, material, halfSlant, halfDepth);
-        addCoverRoof(base, yaw, 0f, upperY, centerStep * 0.5f * direction, roofDir, material, halfSlant, halfDepth);
+        float upperY = lowerY + game.state.buildGrid + 0.12f;
+        float centerStep = run * 0.99f;
+        addCoverRoof(base, yaw, 0f, lowerY, 0f, roofDir, material, halfSlant, halfDepth);
+        addCoverRoof(base, yaw, 0f, upperY, -centerStep * direction, roofDir, material, halfSlant, halfDepth);
     }
 
     private void buildHome(Vector3f base, float yaw) {
