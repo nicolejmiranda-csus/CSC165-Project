@@ -108,17 +108,13 @@ public class MyGameLoaders {
         MyGameAssets a = game.assets;
         a.playerModel1Tx = new TextureImage("playerModel1.jpg");
         a.zombiePlayerModel1Tx = new TextureImage("ZombiePlayerModel1.jpg");
-        a.playerModel2Tx = new TextureImage("playerModel.png");
         a.smilingManTx = new TextureImage("SmilingMan.png");
         a.playerModel2Tx = new TextureImage("playerModel2.png");
         a.zombiePlayerModel2Tx = new TextureImage("ZombiePlayerModel2.png");
         a.grassTx = new TextureImage("grass2.png");
         a.homeTx = new TextureImage("brick1.jpg");
         a.heightMapTextures = new TextureImage[] {
-            new TextureImage("heightmap.png"),
-            new TextureImage("heightmap2.png"),
-            new TextureImage("heightmap3.png"),
-            new TextureImage("heightmap4.png")
+            new TextureImage("heightmap.png")
         };
         a.heightMaptx = a.heightMapTextures[0];
         a.flashlightTx = new TextureImage("flashlightTx.png");
