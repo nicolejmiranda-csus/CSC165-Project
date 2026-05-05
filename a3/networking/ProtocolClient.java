@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.joml.Vector3f;
 
+import a3.GameConstants;
 import a3.MyGame;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.client.GameConnectionClient;
@@ -160,11 +161,12 @@ public class ProtocolClient extends GameConnectionClient {
 				int pieceType = Integer.parseInt(messageTokens[2]);
 				int modeType = Integer.parseInt(messageTokens[3]);
 				int roofDir = Integer.parseInt(messageTokens[4]);
+				int materialType = messageTokens.length >= 9 ? Integer.parseInt(messageTokens[8]) : GameConstants.BUILD_MATERIAL_WOOD;
 				Vector3f pos = new Vector3f(
 						Float.parseFloat(messageTokens[5]),
 						Float.parseFloat(messageTokens[6]),
 						Float.parseFloat(messageTokens[7]));
-				game.applyRemoteBuild(pieceType, modeType, roofDir, pos);
+				game.applyRemoteBuild(pieceType, modeType, roofDir, materialType, pos);
 			}
 
 			// Handle REMOVEBUILD message
@@ -174,11 +176,12 @@ public class ProtocolClient extends GameConnectionClient {
 				int pieceType = Integer.parseInt(messageTokens[2]);
 				int modeType = Integer.parseInt(messageTokens[3]);
 				int roofDir = Integer.parseInt(messageTokens[4]);
+				int materialType = messageTokens.length >= 9 ? Integer.parseInt(messageTokens[8]) : GameConstants.BUILD_MATERIAL_WOOD;
 				Vector3f pos = new Vector3f(
 						Float.parseFloat(messageTokens[5]),
 						Float.parseFloat(messageTokens[6]),
 						Float.parseFloat(messageTokens[7]));
-				game.applyRemoteRemoveBuild(pieceType, modeType, roofDir, pos);
+				game.applyRemoteRemoveBuild(pieceType, modeType, roofDir, materialType, pos);
 			}
 
 			// Handle ROLE message
@@ -199,6 +202,15 @@ public class ProtocolClient extends GameConnectionClient {
 				UUID sourceId = UUID.fromString(messageTokens[1]);
 				UUID targetId = UUID.fromString(messageTokens[2]);
 				game.applyRemoteTag(sourceId, targetId);
+			}
+
+			// Handle ESCAPE message
+			// Format: (escape,playerId)
+			if (messageTokens[0].compareTo("escape") == 0) {
+				if (messageTokens.length < 2)
+					return;
+				UUID playerId = UUID.fromString(messageTokens[1]);
+				game.applyHumanLastChanceEscape(playerId);
 			}
 
 			// Handle ABILITY message
@@ -239,6 +251,17 @@ public class ProtocolClient extends GameConnectionClient {
 				UUID targetId = UUID.fromString(messageTokens[2]);
 				float seconds = Float.parseFloat(messageTokens[3]);
 				game.applyRemoteSlow(sourceId, targetId, seconds);
+			}
+
+			// Handle BLIND message
+			// Format: (blind,sourceId,targetId,seconds)
+			if (messageTokens[0].compareTo("blind") == 0) {
+				if (messageTokens.length < 4)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				UUID targetId = UUID.fromString(messageTokens[2]);
+				float seconds = Float.parseFloat(messageTokens[3]);
+				game.applyRemoteBlind(sourceId, targetId, seconds);
 			}
 
 			// Handle PICKUPSTATE message
@@ -337,6 +360,33 @@ public class ProtocolClient extends GameConnectionClient {
 						Float.parseFloat(messageTokens[5]));
 				game.applyRemoteSound(remoteId, messageTokens[2], location);
 			}
+
+			// Handle SMILE NPC state message
+			// Format: (smile,sourceId,index,0|1,x,y,z,yaw,animationName)
+			// Old format accepted: (smile,sourceId,0|1,x,y,z,yaw,animationName)
+			if (messageTokens[0].compareTo("smile") == 0) {
+				if (messageTokens.length < 8)
+					return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				int offset = messageTokens.length >= 9 ? 1 : 0;
+				int index = offset == 1 ? Integer.parseInt(messageTokens[2]) : 0;
+				boolean spawned = Integer.parseInt(messageTokens[2 + offset]) != 0;
+				Vector3f position = new Vector3f(
+						Float.parseFloat(messageTokens[3 + offset]),
+						Float.parseFloat(messageTokens[4 + offset]),
+						Float.parseFloat(messageTokens[5 + offset]));
+				float yaw = Float.parseFloat(messageTokens[6 + offset]);
+				game.applyRemoteSmilingManState(index, sourceId, spawned, position, yaw, messageTokens[7 + offset]);
+			}
+
+			// Handle SMILEBLIND message
+			// Format: (smileblind,sourceId,index)
+			if (messageTokens[0].compareTo("smileblind") == 0) {
+				if (messageTokens.length < 2)
+					return;
+				int index = messageTokens.length >= 3 ? Integer.parseInt(messageTokens[2]) : 0;
+				game.applyRemoteSmilingManBlind(index, UUID.fromString(messageTokens[1]));
+			}
 		}
 	}
 
@@ -421,22 +471,24 @@ public class ProtocolClient extends GameConnectionClient {
 		}
 	}
 
-	public void sendBuildMessage(int pieceType, int modeType, int roofDir, Vector3f pos) {
+	public void sendBuildMessage(int pieceType, int modeType, int roofDir, int materialType, Vector3f pos) {
 		try {
 			String message = "build," + id.toString()
 					+ "," + pieceType + "," + modeType + "," + roofDir
-					+ "," + pos.x() + "," + pos.y() + "," + pos.z();
+					+ "," + pos.x() + "," + pos.y() + "," + pos.z()
+					+ "," + materialType;
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
 	}
 
-	public void sendRemoveBuildMessage(int pieceType, int modeType, int roofDir, Vector3f pos) {
+	public void sendRemoveBuildMessage(int pieceType, int modeType, int roofDir, int materialType, Vector3f pos) {
 		try {
 			String message = "removebuild," + id.toString()
 					+ "," + pieceType + "," + modeType + "," + roofDir
-					+ "," + pos.x() + "," + pos.y() + "," + pos.z();
+					+ "," + pos.x() + "," + pos.y() + "," + pos.z()
+					+ "," + materialType;
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
@@ -490,6 +542,15 @@ public class ProtocolClient extends GameConnectionClient {
 		}
 	}
 
+	public void sendBlindMessage(UUID targetId, float seconds) {
+		try {
+			String message = "blind," + id.toString() + "," + targetId.toString() + "," + seconds;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
 	public void sendPickupCollectMessage(int pickupId) {
 		try {
 			String message = "pickupcollect," + id.toString() + "," + pickupId;
@@ -523,6 +584,47 @@ public class ProtocolClient extends GameConnectionClient {
 			message += "," + location.x();
 			message += "," + location.y();
 			message += "," + location.z();
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSmilingManStateMessage(boolean spawned, Vector3f position, float yaw, String animationName) {
+		sendSmilingManStateMessage(0, spawned, position, yaw, animationName);
+	}
+
+	public void sendSmilingManStateMessage(int index, boolean spawned, Vector3f position, float yaw, String animationName) {
+		try {
+			String message = "smile," + id.toString() + "," + index + "," + (spawned ? 1 : 0);
+			message += "," + position.x();
+			message += "," + position.y();
+			message += "," + position.z();
+			message += "," + yaw;
+			message += "," + (animationName == null || animationName.isBlank() ? "none" : animationName);
+			sendPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSmilingManDamageMessage(UUID targetId, int amount) {
+		if (targetId == null) return;
+		try {
+			String message = "smiledamage," + id.toString() + "," + targetId.toString() + "," + amount;
+			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendSmilingManBlindMessage() {
+		sendSmilingManBlindMessage(0);
+	}
+
+	public void sendSmilingManBlindMessage(int index) {
+		try {
+			String message = "smileblind," + id.toString() + "," + index;
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
