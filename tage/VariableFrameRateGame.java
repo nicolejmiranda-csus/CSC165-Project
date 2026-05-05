@@ -1,6 +1,7 @@
 package tage;
 import java.awt.event.*;
 import java.awt.event.KeyListener;
+import org.joml.Vector3f;
 
 /**
 * A game application should extend this class.
@@ -120,6 +121,15 @@ public abstract class VariableFrameRateGame implements KeyListener, MouseListene
 	* It is not necessary to call super.update().
 	*/
 	public abstract void update();
+
+	/** Override to draw a full-screen white flash overlay. 0 is off, 1 is solid white. */
+	public float getScreenFlashOpacity() { return 0.0f; }
+
+	/** Override with the color for the full-screen overlay. */
+	public Vector3f getScreenFlashColor() { return new Vector3f(1.0f, 1.0f, 1.0f); }
+
+	/** Override to use the screen overlay as an edge vignette instead of a flat overlay. */
+	public float getScreenFlashVignette() { return 0.0f; }
 
 	/**
 	* Handles key and mouse listener tasks.
