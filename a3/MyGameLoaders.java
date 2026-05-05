@@ -30,7 +30,24 @@ public class MyGameLoaders {
             a.playerModel1GhostAnimatedS[i].loadAnimation("WALK", "playerModel1_WalkForward.rka");
         }
         a.playerModel1S = new ImportedModel("boy_character_textured.obj");
-        a.playerModel2S = new ImportedModel("playerModel.obj");
+
+        a.playerModel2AnimatedS = new AnimatedShape("playerModel2_Mesh.rkm", "playerModel2_Skeleton.rks");
+        a.playerModel2AnimatedS.loadAnimation("IDLE", "playerModel2_Idle.rka");
+        a.playerModel2AnimatedS.loadAnimation("RUN", "playerModel2_Run.rka");
+        a.playerModel2AnimatedS.loadAnimation("WALK", "playerModel2_Walk.rka");
+        a.playerModel2AnimatedS.loadAnimation("ZOMBIE_WALK", "playerModel2_ZombieWalk.rka");
+        a.playerModel2AnimatedS.loadAnimation("ZOMBIE_RUN", "playerModel2_ZombieRun.rka");
+        a.playerModel2GhostAnimatedS = new AnimatedShape[8];
+        for (int i = 0; i < a.playerModel2GhostAnimatedS.length; i++) {
+            a.playerModel2GhostAnimatedS[i] = new AnimatedShape("playerModel2_Mesh.rkm", "playerModel2_Skeleton.rks");
+            a.playerModel2GhostAnimatedS[i].loadAnimation("IDLE", "playerModel2_Idle.rka");
+            a.playerModel2GhostAnimatedS[i].loadAnimation("RUN", "playerModel2_Run.rka");
+            a.playerModel2GhostAnimatedS[i].loadAnimation("WALK", "playerModel2_Walk.rka");
+            a.playerModel2GhostAnimatedS[i].loadAnimation("ZOMBIE_WALK", "playerModel2_ZombieWalk.rka");
+            a.playerModel2GhostAnimatedS[i].loadAnimation("ZOMBIE_RUN", "playerModel2_ZombieRun.rka");
+        }
+        a.playerModel2S = new ImportedModel("playerModel2.obj");
+
         a.flashlightS = new ImportedModel("flashlight.obj");
         a.tableS = new ImportedModel("table.obj");
         a.healthPotionS = new ImportedModel("healthpotion1.obj");
@@ -93,6 +110,8 @@ public class MyGameLoaders {
         a.zombiePlayerModel1Tx = new TextureImage("ZombiePlayerModel1.jpg");
         a.playerModel2Tx = new TextureImage("playerModel.png");
         a.smilingManTx = new TextureImage("SmilingMan.png");
+        a.playerModel2Tx = new TextureImage("playerModel2.png");
+        a.zombiePlayerModel2Tx = new TextureImage("ZombiePlayerModel2.png");
         a.grassTx = new TextureImage("grass2.png");
         a.homeTx = new TextureImage("brick1.jpg");
         a.heightMapTextures = new TextureImage[] {

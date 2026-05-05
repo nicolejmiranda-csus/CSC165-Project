@@ -1886,8 +1886,8 @@ public class MyGamePhysicsSystem {
             game.assets.avatar.setTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel1Tx : game.assets.playerModel1Tx);
             rs.setHasSolidColor(false);
         } else {
-            rs.setHasSolidColor(game.state.localPlayerZombie);
-            if (game.state.localPlayerZombie) rs.setColor(new Vector3f(0.15f, 0.9f, 0.2f));
+            game.assets.avatar.setTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel2Tx : game.assets.playerModel2Tx);
+            rs.setHasSolidColor(false);
         }
         boolean invisible = game.state.localPlayerZombie && game.state.invisTimer > 0.0;
         if (invisible) rs.disableRendering();
@@ -1908,8 +1908,8 @@ public class MyGamePhysicsSystem {
             ghost.setTextureImage(zombie ? game.assets.zombiePlayerModel1Tx : game.assets.playerModel1Tx);
             rs.setHasSolidColor(false);
         } else {
-            rs.setHasSolidColor(zombie);
-            if (zombie) rs.setColor(new Vector3f(0.15f, 0.9f, 0.2f));
+            ghost.setTextureImage(zombie ? game.assets.zombiePlayerModel2Tx : game.assets.playerModel2Tx);
+            rs.setHasSolidColor(false);
         }
         if (invisible) rs.disableRendering();
         else rs.enableRendering();
