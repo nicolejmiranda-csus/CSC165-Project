@@ -143,7 +143,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 							messageTokens[4],
 							messageTokens[5],
 							messageTokens[6],
-							messageTokens[7]
+							messageTokens[7],
+							messageTokens.length >= 9 ? messageTokens[8] : "0"
 					};
 					gameState.onBuild(buildClientId, buildData);
 					sendBuildMessages(buildClientId, buildData);
@@ -159,7 +160,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 							messageTokens[4],
 							messageTokens[5],
 							messageTokens[6],
-							messageTokens[7]
+							messageTokens[7],
+							messageTokens.length >= 9 ? messageTokens[8] : "0"
 					};
 					gameState.onRemoveBuild(removeBuildClientId, removeBuildData);
 					sendRemoveBuildMessages(removeBuildClientId, removeBuildData);
@@ -219,6 +221,33 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					if (!hasTokenCount(messageTokens, 4, message))
 						return;
 					gameState.onSlow(UUID.fromString(messageTokens[1]), UUID.fromString(messageTokens[2]), Float.parseFloat(messageTokens[3]));
+					return;
+
+				case "blind":
+					if (!hasTokenCount(messageTokens, 4, message))
+						return;
+					gameState.onBlind(UUID.fromString(messageTokens[1]), UUID.fromString(messageTokens[2]), Float.parseFloat(messageTokens[3]));
+					return;
+
+				case "smile":
+					if (!hasTokenCount(messageTokens, 8, message))
+						return;
+					forwardQuietGameplayMessage(message, UUID.fromString(messageTokens[1]));
+					return;
+
+				case "smileblind":
+					if (!hasTokenCount(messageTokens, 2, message))
+						return;
+					forwardGameplayMessage(message, UUID.fromString(messageTokens[1]));
+					return;
+
+				case "smiledamage":
+					if (!hasTokenCount(messageTokens, 4, message))
+						return;
+					gameState.onSmilingManDamage(
+							UUID.fromString(messageTokens[1]),
+							UUID.fromString(messageTokens[2]),
+							Integer.parseInt(messageTokens[3]));
 					return;
 
 				default:
@@ -357,13 +386,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 
 	public void sendBuildMessages(UUID clientID, String[] buildData) {
 		try {
-			String message = "build," + clientID.toString()
-					+ "," + buildData[0]
-					+ "," + buildData[1]
-					+ "," + buildData[2]
-					+ "," + buildData[3]
-					+ "," + buildData[4]
-					+ "," + buildData[5];
+			String message = "build," + clientID.toString();
+			for (String value : buildData) message += "," + value;
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
@@ -373,13 +397,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 
 	public void sendRemoveBuildMessages(UUID clientID, String[] buildData) {
 		try {
-			String message = "removebuild," + clientID.toString()
-					+ "," + buildData[0]
-					+ "," + buildData[1]
-					+ "," + buildData[2]
-					+ "," + buildData[3]
-					+ "," + buildData[4]
-					+ "," + buildData[5];
+			String message = "removebuild," + clientID.toString();
+			for (String value : buildData) message += "," + value;
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
@@ -390,6 +409,14 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	private void forwardGameplayMessage(String message, UUID clientID) {
 		try {
 			logForwardPacket(message, clientID);
+			forwardPacketToAll(message, clientID);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	private void forwardQuietGameplayMessage(String message, UUID clientID) {
+		try {
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
 			e.printStackTrace();
