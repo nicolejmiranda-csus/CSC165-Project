@@ -17,6 +17,11 @@ public class MyGameLoaders {
         a.playerModel1AnimatedS.loadAnimation("IDLE", "playerModel1_Idle.rka");
         a.playerModel1AnimatedS.loadAnimation("RUN", "playerModel1_RunForward.rka");
         a.playerModel1AnimatedS.loadAnimation("WALK", "playerModel1_WalkForward.rka");
+        a.smilingManAnimatedShapes = new AnimatedShape[GameConstants.MAX_SMILING_MEN];
+        for (int i = 0; i < a.smilingManAnimatedShapes.length; i++) {
+            a.smilingManAnimatedShapes[i] = loadSmilingManShape();
+        }
+        a.smilingManAnimatedS = a.smilingManAnimatedShapes[0];
         a.playerModel1GhostAnimatedS = new AnimatedShape[8];
         for (int i = 0; i < a.playerModel1GhostAnimatedS.length; i++) {
             a.playerModel1GhostAnimatedS[i] = new AnimatedShape("playerModel1_Mesh.rkm", "playerModel1_Skeleton.rks");
@@ -69,19 +74,41 @@ public class MyGameLoaders {
         a.linzS = new Line(new Vector3f(0f, 0f, 0f), new Vector3f(0f, 0f, -3f));
     }
 
+    private AnimatedShape loadSmilingManShape() {
+        AnimatedShape shape = new AnimatedShape("smilingMan.rkm", "smilingMan.rks");
+        shape.loadAnimation("smilingManIdle", "smilingMan_Idle.rka");
+        shape.loadAnimation("smilingManWalkForward", "smilingMan_WalkForward.rka");
+        shape.loadAnimation("smilingManIdleWave", "smilingMan_IdleWave.rka");
+        shape.loadAnimation("smilingManRunForwardTransition", "smilingMan_RunForwardTransition.rka");
+        shape.loadAnimation("smilingManRunForwardInitial", "smilingMan_RunForwardInitial.rka");
+        shape.loadAnimation("smilingManRunForward", "smilingMan_RunForward.rka");
+        shape.loadAnimation("smilingManRunForwardOutro", "smilingMan_RunForwardOutro.rka");
+        shape.loadAnimation("smilingManRunForwardToStand", "smilingMan_RunForwardToStand.rka");
+        return shape;
+    }
+
     public void loadTextures() {
         MyGameAssets a = game.assets;
         a.playerModel1Tx = new TextureImage("playerModel1.jpg");
         a.zombiePlayerModel1Tx = new TextureImage("ZombiePlayerModel1.jpg");
         a.playerModel2Tx = new TextureImage("playerModel.png");
+        a.smilingManTx = new TextureImage("SmilingMan.png");
         a.grassTx = new TextureImage("grass2.png");
         a.homeTx = new TextureImage("brick1.jpg");
-        a.heightMaptx = new TextureImage("heightmap.png");
+        a.heightMapTextures = new TextureImage[] {
+            new TextureImage("heightmap.png"),
+            new TextureImage("heightmap2.png"),
+            new TextureImage("heightmap3.png"),
+            new TextureImage("heightmap4.png")
+        };
+        a.heightMaptx = a.heightMapTextures[0];
         a.flashlightTx = new TextureImage("flashlightTx.png");
         a.tableTx = new TextureImage("tableTx.png");
         a.healthPotionTx = new TextureImage("health_potion.png");
         a.dolphinTx = new TextureImage("Dolphin_HighPolyUV.jpg");
-        a.woodBlockTx = new TextureImage("Wood Texture 1.png");
+        a.woodBlockTx = new TextureImage("woodplanks.png");
+        a.metalBuildTx = new TextureImage("rustymetal.png");
+        a.glassBuildTx = new TextureImage("abstract-background-with-patterned-glass-texture 1024x1024.jpg");
         a.rockTx = new TextureImage("rockTexture1.png");
         a.hoodTx = new TextureImage("hood_leather.png");
         a.babyZombieTx = new TextureImage("babyZombie.png");
