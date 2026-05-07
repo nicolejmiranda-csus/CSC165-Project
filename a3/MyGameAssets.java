@@ -20,6 +20,7 @@ public class MyGameAssets {
     AnimatedShape[] smilingManAnimatedShapes;
     AnimatedShape playerModel2AnimatedS;
     AnimatedShape[] playerModel2GhostAnimatedS;
+    AnimatedShape mushMonAnimatedS;
     ObjShape playerModel1S, playerModel2S, flashlightS, tableS, healthPotionS, dolphinS;
     ObjShape cubeS, rock2S, lowpolyHoodS, dashPickupS, babyZombieS;
     ObjShape[] sceneryRockS, sceneryTreeS;
@@ -27,7 +28,7 @@ public class MyGameAssets {
 
     // Textures
     TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, zombiePlayerModel2Tx, healthPotionTx;
-    TextureImage smilingManTx;
+    TextureImage smilingManTx, mushroomMonTx;
     TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx, dolphinTx;
     TextureImage[] heightMapTextures;
     int activeHeightMapIndex = 0;
@@ -38,6 +39,7 @@ public class MyGameAssets {
     // Scene objects
     GameObject avatar;
     GameObject smilingMan;
+    GameObject mushMon;
     final ArrayList<GameObject> smilingMen = new ArrayList<>();
     GameObject healthPotion;
     GameObject terrain;

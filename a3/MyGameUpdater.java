@@ -19,6 +19,7 @@ public class MyGameUpdater {
         game.physicsSystem.update((float) game.state.elapsedTime);
         game.animationSystem.updateLocalAvatarAnimation();
         if (game.state.gm != null) game.state.gm.updateGhostAnimations();
+        game.mushroomMonSystem.update((float) game.state.elapsedTime);
         game.smilingManSystem.update((float) game.state.elapsedTime);
         game.cameraSystem.updateCameraLimits();
         game.cameraSystem.updateMainCamera();

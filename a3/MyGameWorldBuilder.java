@@ -27,6 +27,7 @@ public class MyGameWorldBuilder {
         buildCoverStructures();
         buildLocalAvatar();
         buildSmilingMan();
+        buildMushroomMon();
         buildAxes();
         buildBuildPreview();
     }
@@ -66,6 +67,18 @@ public class MyGameWorldBuilder {
             a.smilingMen.add(smilingMan);
             if (i == 0) a.smilingMan = smilingMan;
         }
+    }
+
+    private void buildMushroomMon() {
+        MyGameAssets a = game.assets;
+        if (a.mushMonAnimatedS == null || a.mushroomMonTx == null) return;
+        a.mushMon = new GameObject(GameObject.root(), a.mushMonAnimatedS, a.mushroomMonTx);
+        a.mushMon.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
+        a.mushMon.setLocalScale((new Matrix4f()).scaling(GameConstants.MUSHROOM_MON_SCALE));
+        a.mushMon.setLocalRotation((new Matrix4f()).identity());
+        a.mushMon.getRenderStates().hasLighting(true);
+        a.mushMon.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
+        a.mushMon.getRenderStates().disableRendering();
     }
 
     private void buildTableCovers() {

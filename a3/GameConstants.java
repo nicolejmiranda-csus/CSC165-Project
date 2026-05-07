@@ -10,9 +10,6 @@ public final class GameConstants {
     public static final float HOME_SCALE = 0.65f;
 
     public static final float SMILING_MAN_SCALE = 0.58f;
-    public static final float MUSHROOM_MON_SCALE = 1.0f;
-    public static final float MUSHROOM_MON_DETECTION_RADIUS = 8.0f;
-    public static final float MUSHROOM_MON_EXPLOSION_RADIUS = 1.5f;
     public static final float SMILING_MAN_STILL_SPAWN_SECONDS = 30.0f;
     public static final float SMILING_MAN_HALFTIME_SPAWN_SECONDS = 150.0f;
     public static final float SMILING_MAN_DETECTION_RADIUS = 95.0f;
@@ -62,6 +59,10 @@ public final class GameConstants {
     public static final int PICKUPS_PER_TYPE = 15;
     public static final int MAX_SMILING_MEN = 5;
     public static final float SMILING_MAN_PROXIMITY_RADIUS = 58.0f;
+
+    public static final float MUSHROOM_MON_SCALE = 3.0f;
+    public static final float MUSHROOM_MON_DETECTION_RADIUS = 8.0f;
+    public static final float MUSHROOM_MON_EXPLOSION_RADIUS = 1.5f;
     public static final int TABLE_COVER_COUNT = 15;
     public static final int RANDOM_HOUSE_COUNT = 5;
     public static final int RANDOM_WALL_COVER_COUNT = 18;

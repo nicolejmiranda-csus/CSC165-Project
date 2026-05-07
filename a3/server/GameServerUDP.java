@@ -233,6 +233,18 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 							Integer.parseInt(messageTokens[3]));
 					return;
 
+				case "mshroom":
+					if (!hasTokenCount(messageTokens, 8, message))
+						return;
+					forwardQuietGameplayMessage(message, UUID.fromString(messageTokens[1]));
+					return;
+
+				case "mshroomexp":
+					if (!hasTokenCount(messageTokens, 3, message))
+						return;
+					forwardGameplayMessage(message, UUID.fromString(messageTokens[1]));
+					return;
+
 				default:
 					System.out.println("server ignored unknown packet --> " + message);
 			}
