@@ -10,6 +10,9 @@ public final class GameConstants {
     public static final float HOME_SCALE = 0.65f;
 
     public static final float SMILING_MAN_SCALE = 0.58f;
+    public static final float MUSHROOM_MON_SCALE = 1.0f;
+    public static final float MUSHROOM_MON_DETECTION_RADIUS = 8.0f;
+    public static final float MUSHROOM_MON_EXPLOSION_RADIUS = 1.5f;
     public static final float SMILING_MAN_STILL_SPAWN_SECONDS = 30.0f;
     public static final float SMILING_MAN_HALFTIME_SPAWN_SECONDS = 150.0f;
     public static final float SMILING_MAN_DETECTION_RADIUS = 95.0f;
