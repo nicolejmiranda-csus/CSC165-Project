@@ -65,6 +65,7 @@ public class MyGameMushroomMonSystem {
         applyObjectTransform();
         broadcastStateIfNeeded(dt);
         updateAnimationIfVisible();
+        updateMushroomMonAudio();
     }
 
     public void applyRemoteState(UUID sourceId, boolean remoteSpawned, Vector3f remotePosition, float remoteYaw, String animationName) {
@@ -168,6 +169,7 @@ public class MyGameMushroomMonSystem {
             game.state.protClient.sendMushroomMonExplosionMessage(agent.targetId);
         }
         applyExplosion(agent.targetId);
+        game.soundSystem.playMushroomMonPoof(new Vector3f(agent.position));
         forceBroadcastState();
     }
 
@@ -304,6 +306,7 @@ public class MyGameMushroomMonSystem {
             agent.object.getRenderStates().disableRendering();
         }
         if (agent.shape != null) agent.shape.stopAnimation();
+        game.soundSystem.stopMushroomMon();
     }
 
     private void resetRoundState() {
@@ -333,6 +336,14 @@ public class MyGameMushroomMonSystem {
 
     private void updateAnimationIfVisible() {
         if (agent != null && agent.spawned && agent.shape != null) agent.shape.updateAnimation();
+    }
+
+    private void updateMushroomMonAudio() {
+        if (agent == null || !agent.spawned) return;
+        boolean wandering = agent.phase == MyGameMushroomMonPhase.WANDER;
+        boolean chasing   = agent.phase == MyGameMushroomMonPhase.CHASE;
+        boolean exploded  = agent.phase == MyGameMushroomMonPhase.EXPLODED;
+        game.soundSystem.updateMushroomMonLoop(new Vector3f(agent.position), wandering, chasing, exploded);
     }
 
     private void ensureAgent() {

@@ -44,7 +44,12 @@ public class MyGameSoundSystem {
     private AudioResource smilingManRunResource;
     private AudioResource smilingManBreathResource;
     private AudioResource smilingManHelloResource;
+    private AudioResource mushroomMonWalkResource;
+    private AudioResource mushroomMonChaseResource;
+    private AudioResource mushroomMonSmokeHissResource;
+    private AudioResource mushroomMonPoofResource;
 
+    private MyGameMushroomMonSoundSet mushroomMonSounds;
     private MyGamePlayerSoundSet localPlayerSounds;
     private Sound pickupSound;
     private Sound countdownFiveSound;
@@ -80,6 +85,10 @@ public class MyGameSoundSystem {
             smilingManRunResource = resource("freesound_community-running-sounds-6003.wav");
             smilingManBreathResource = resource("ribhavagrawal-heavy-breathing-sound-effect-type-03-294201.wav");
             smilingManHelloResource = resource("freesound_community-hello-81683.wav");
+            mushroomMonWalkResource = resource("mono_mushroom-walk.wav");
+            mushroomMonChaseResource = resource("mono_mushroom-chase.wav");
+            mushroomMonSmokeHissResource = resource("mono_mushroom-smoke-hiss.wav");
+            mushroomMonPoofResource = resource("mono_mushroom-poof.wav");
 
             localPlayerSounds = createPlayerSoundSet();
             pickupSound = oneShot(pickupResource, 75, 2f, 45f, 1.6f);
@@ -115,6 +124,7 @@ public class MyGameSoundSystem {
         for (MyGamePlayerSoundSet sounds : remotePlayerSounds.values()) sounds.stopAll();
         remotePlayerSounds.clear();
         stopAllSmilingMen();
+        stopMushroomMon();
         stop(scaryAmbienceSound);
     }
 
@@ -182,6 +192,20 @@ public class MyGameSoundSystem {
         smilingManSounds.clear();
     }
 
+    public void updateMushroomMonLoop(Vector3f location, boolean wandering, boolean chasing, boolean exploded) {
+        if (!loaded) return;
+        getMushroomMonSounds().update(location, wandering, chasing, exploded);
+    }
+
+    public void playMushroomMonPoof(Vector3f location) {
+        if (!loaded) return;
+        getMushroomMonSounds().playPoof(location);
+    }
+
+    public void stopMushroomMon() {
+        if (mushroomMonSounds != null) mushroomMonSounds.stopAll();
+    }
+
     private AudioResource resource(String fileName) {
         return audioMgr.createAudioResource(fileName, AudioResourceType.AUDIO_SAMPLE);
     }
@@ -213,6 +237,19 @@ public class MyGameSoundSystem {
                 loop(smilingManRunResource, 86, 3f, 100f, 0.9f),
                 loop(smilingManBreathResource, 88, 3f, 95f, 0.9f),
                 oneShot(smilingManHelloResource, 92, 3f, 100f, 0.8f));
+    }
+
+    private MyGameMushroomMonSoundSet getMushroomMonSounds() {
+        if (mushroomMonSounds == null) mushroomMonSounds = createMushroomMonSoundSet();
+        return mushroomMonSounds;
+    }
+
+    private MyGameMushroomMonSoundSet createMushroomMonSoundSet() {
+        return new MyGameMushroomMonSoundSet(
+                loop(mushroomMonWalkResource, 68, 3f, 50f, 1.1f),
+                loop(mushroomMonChaseResource, 78, 3f, 60f, 1.0f),
+                loop(mushroomMonSmokeHissResource, 82, 3f, 55f, 1.0f),
+                oneShot(mushroomMonPoofResource, 90, 3f, 80f, 0.9f));
     }
 
     private Sound loop(AudioResource resource, int volume, float minDistance, float maxDistance, float rolloff) {
