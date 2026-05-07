@@ -10,6 +10,7 @@ import a3.networking.GhostAvatar;
 
 public class MyGameMushroomMonSystem {
     private static final String ANIM_WALK = "WALK";
+    private static final float NPC_RADIUS    = 0.72f;
     private static final float WANDER_SPEED = 1.05f;
     private static final float CHASE_SPEED  = 1.15f;
     private static final float TURN_RATE    = 2.0f;
@@ -174,12 +175,13 @@ public class MyGameMushroomMonSystem {
     }
 
     private void moveToward(Vector3f target, float speed, float dt) {
-        Vector3f dir = new Vector3f(target).sub(agent.position);
-        dir.y = 0f;
-        float len = dir.length();
-        if (len < 0.01f) return;
+        Vector3f desired = new Vector3f(target).sub(agent.position);
+        desired.y = 0f;
+        float distance = desired.length();
+        if (distance < 0.65f) return;
+        desired.div(distance);
 
-        float targetYaw = (float) Math.atan2(dir.x, dir.z);
+        float targetYaw = (float) Math.atan2(desired.x, desired.z);
         float diff = targetYaw - agent.yaw;
         while (diff > Math.PI)  diff -= 2 * Math.PI;
         while (diff < -Math.PI) diff += 2 * Math.PI;
@@ -187,9 +189,40 @@ public class MyGameMushroomMonSystem {
         agent.yaw += Math.max(-maxTurn, Math.min(diff, maxTurn));
 
         Vector3f forward = new Vector3f((float) Math.sin(agent.yaw), 0f, (float) Math.cos(agent.yaw));
-        float alignment = Math.max(0.25f, forward.dot(dir.normalize()));
-        agent.position.add(forward.mul(speed * dt * alignment));
-        agent.position.y = game.physicsSystem.terrainHeightAt(agent.position.x, agent.position.z);
+        float alignment = Math.max(0.25f, forward.dot(desired));
+        float step = speed * dt * alignment;
+        Vector3f next = new Vector3f(agent.position).add(new Vector3f(forward).mul(step));
+        next.y = game.physicsSystem.terrainHeightAt(next.x, next.z);
+
+        if (!game.physicsSystem.isNpcBlockedByWorld(next, NPC_RADIUS)) {
+            agent.position.set(next);
+            return;
+        }
+
+        Vector3f openStep = findOpenAvoidanceStep(desired, step);
+        if (openStep != null) {
+            agent.position.set(openStep);
+            return;
+        }
+
+        chooseWanderDestination();
+    }
+
+    private Vector3f findOpenAvoidanceStep(Vector3f desired, float step) {
+        float[] angles = {35f, -35f, 70f, -70f, 110f, -110f, 155f, -155f};
+        for (float angle : angles) {
+            Vector3f dir = rotateY(desired, (float) Math.toRadians(angle));
+            Vector3f next = new Vector3f(agent.position).add(new Vector3f(dir).mul(Math.max(0.25f, step)));
+            next.y = game.physicsSystem.terrainHeightAt(next.x, next.z);
+            if (!game.physicsSystem.isNpcBlockedByWorld(next, NPC_RADIUS)) return next;
+        }
+        return null;
+    }
+
+    private Vector3f rotateY(Vector3f dir, float angle) {
+        float cos = (float) Math.cos(angle);
+        float sin = (float) Math.sin(angle);
+        return new Vector3f(dir.x * cos + dir.z * sin, 0f, -dir.x * sin + dir.z * cos).normalize();
     }
 
     private void chooseWanderDestination() {
