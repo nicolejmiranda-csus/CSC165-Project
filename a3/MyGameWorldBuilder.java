@@ -27,7 +27,7 @@ public class MyGameWorldBuilder {
         buildCoverStructures();
         buildLocalAvatar();
         buildSmilingMan();
-        buildMushroomMon();
+        buildMushroomMons();
         buildAxes();
         buildBuildPreview();
     }
@@ -69,16 +69,20 @@ public class MyGameWorldBuilder {
         }
     }
 
-    private void buildMushroomMon() {
+    private void buildMushroomMons() {
         MyGameAssets a = game.assets;
         if (a.mushMonAnimatedS == null || a.mushroomMonTx == null) return;
-        a.mushMon = new GameObject(GameObject.root(), a.mushMonAnimatedS, a.mushroomMonTx);
-        a.mushMon.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
-        a.mushMon.setLocalScale((new Matrix4f()).scaling(GameConstants.MUSHROOM_MON_SCALE));
-        a.mushMon.setLocalRotation((new Matrix4f()).identity());
-        a.mushMon.getRenderStates().hasLighting(true);
-        a.mushMon.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
-        a.mushMon.getRenderStates().disableRendering();
+        a.mushMons.clear();
+        for (int i = 0; i < MyGameMushroomMonSystem.TOTAL_COUNT; i++) {
+            GameObject obj = new GameObject(GameObject.root(), a.mushMonAnimatedS, a.mushroomMonTx);
+            obj.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
+            obj.setLocalScale((new Matrix4f()).scaling(GameConstants.MUSHROOM_MON_SCALE));
+            obj.setLocalRotation((new Matrix4f()).identity());
+            obj.getRenderStates().hasLighting(true);
+            obj.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
+            obj.getRenderStates().disableRendering();
+            a.mushMons.add(obj);
+        }
     }
 
     private void buildTableCovers() {

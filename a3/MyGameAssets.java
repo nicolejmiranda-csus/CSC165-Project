@@ -39,7 +39,7 @@ public class MyGameAssets {
     // Scene objects
     GameObject avatar;
     GameObject smilingMan;
-    GameObject mushMon;
+    final ArrayList<GameObject> mushMons = new ArrayList<>();
     final ArrayList<GameObject> smilingMen = new ArrayList<>();
     GameObject healthPotion;
     GameObject terrain;
