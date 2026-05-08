@@ -38,6 +38,7 @@ public class MyGame extends VariableFrameRateGame {
 	final MyGameItemSystem itemSystem = new MyGameItemSystem(this);
 	final MyGameVisualSystem visualSystem = new MyGameVisualSystem(this);
 	final MyGameMouseLookSystem mouseLookSystem = new MyGameMouseLookSystem(this);
+	final MyGameMushroomMonSystem mushroomMonSystem = new MyGameMushroomMonSystem(this);
 	final MyGameNetworkingSystem networking = new MyGameNetworkingSystem(this);
 	final MyGamePhysicsSystem physicsSystem = new MyGamePhysicsSystem(this);
 	final MyGameInputBinder inputBinder = new MyGameInputBinder(this);
@@ -85,16 +86,10 @@ public class MyGame extends VariableFrameRateGame {
 			game.setSelectedAvatarType(chooseAvatarPopup());
 		} else if (args.length >= 1 && NetworkDiscovery.usesAutoDiscovery(args[0])) {
 			game = new MyGame(args[0]);
-			if (args.length >= 2)
-				game.setSelectedAvatarType(args[1]);
-			else
-				game.setSelectedAvatarType(chooseAvatarPopup());
+			game.setSelectedAvatarType(args.length >= 2 ? args[1] : chooseAvatarPopup());
 		} else if (args.length >= 3) {
 			game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
-			if (args.length >= 4)
-				game.setSelectedAvatarType(args[3]);
-			else
-				game.setSelectedAvatarType(chooseAvatarPopup());
+			game.setSelectedAvatarType(args.length >= 4 ? args[3] : chooseAvatarPopup());
 		} else {
 			System.out.println("Usage:");
 			System.out.println("Single-player: java a3.MyGame");
@@ -393,6 +388,9 @@ public class MyGame extends VariableFrameRateGame {
 	public void applyRemoteSmilingManBlind(int index, java.util.UUID sourceId) {
 		smilingManSystem.applyRemoteBlind(index, sourceId);
 	}
+
+	public void applyMushroomMonExplosion(java.util.UUID targetId) { mushroomMonSystem.applyExplosion(targetId); }
+	public void applyRemoteMushroomMonState(java.util.UUID sourceId, boolean spawned, Vector3f position, float yaw, String animationName) { mushroomMonSystem.applyRemoteState(sourceId, spawned, position, yaw, animationName); }
 
 	public void applyRemoteAnimation(java.util.UUID id, String animationName) {
 		physicsSystem.applyRemoteAnimation(id, animationName);

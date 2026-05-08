@@ -48,6 +48,9 @@ public class MyGameLoaders {
         }
         a.playerModel2S = new ImportedModel("playerModel2.obj");
 
+        a.mushMonAnimatedS = new AnimatedShape("mushMon_Mesh.rkm", "mushMon_Skeleton.rks");
+        a.mushMonAnimatedS.loadAnimation("WALK", "mushMon_Walk.rka");
+
         a.flashlightS = new ImportedModel("flashlight.obj");
         a.tableS = new ImportedModel("table.obj");
         a.healthPotionS = new ImportedModel("healthpotion1.obj");
@@ -109,6 +112,7 @@ public class MyGameLoaders {
         a.playerModel1Tx = new TextureImage("playerModel1.jpg");
         a.zombiePlayerModel1Tx = new TextureImage("ZombiePlayerModel1.jpg");
         a.smilingManTx = new TextureImage("SmilingMan.png");
+        a.mushroomMonTx = new TextureImage("mushMon_Txt.png");
         a.playerModel2Tx = new TextureImage("playerModel2.png");
         a.zombiePlayerModel2Tx = new TextureImage("ZombiePlayerModel2.png");
         a.grassTx = new TextureImage("grass2.png");

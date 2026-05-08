@@ -27,6 +27,7 @@ public class MyGameWorldBuilder {
         buildCoverStructures();
         buildLocalAvatar();
         buildSmilingMan();
+        buildMushroomMons();
         buildAxes();
         buildBuildPreview();
     }
@@ -65,6 +66,22 @@ public class MyGameWorldBuilder {
             smilingMan.getRenderStates().disableRendering();
             a.smilingMen.add(smilingMan);
             if (i == 0) a.smilingMan = smilingMan;
+        }
+    }
+
+    private void buildMushroomMons() {
+        MyGameAssets a = game.assets;
+        if (a.mushMonAnimatedS == null || a.mushroomMonTx == null) return;
+        a.mushMons.clear();
+        for (int i = 0; i < MyGameMushroomMonSystem.TOTAL_COUNT; i++) {
+            GameObject obj = new GameObject(GameObject.root(), a.mushMonAnimatedS, a.mushroomMonTx);
+            obj.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
+            obj.setLocalScale((new Matrix4f()).scaling(GameConstants.MUSHROOM_MON_SCALE));
+            obj.setLocalRotation((new Matrix4f()).identity());
+            obj.getRenderStates().hasLighting(true);
+            obj.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
+            obj.getRenderStates().disableRendering();
+            a.mushMons.add(obj);
         }
     }
 

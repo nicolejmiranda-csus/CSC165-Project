@@ -72,7 +72,7 @@ public class ProtocolClient extends GameConnectionClient {
 					System.out.println("join success confirmed");
 					game.setIsConnected(true);
 					sendCreateMessage(game.getSelectedAvatarType(), game.getPlayerPosition(), game.getPlayerYaw());
-				}
+					}
 				if (messageTokens[1].compareTo("failure") == 0) {
 					System.out.println("join failure confirmed");
 					game.setIsConnected(false);
@@ -387,6 +387,29 @@ public class ProtocolClient extends GameConnectionClient {
 				int index = messageTokens.length >= 3 ? Integer.parseInt(messageTokens[2]) : 0;
 				game.applyRemoteSmilingManBlind(index, UUID.fromString(messageTokens[1]));
 			}
+
+			// Handle MSHROOM message — MushroomMon state sync from owner client
+			// Format: (mshroom,sourceId,spawned,x,y,z,yaw,animationName)
+			if (messageTokens[0].compareTo("mshroom") == 0) {
+				if (messageTokens.length < 8) return;
+				UUID sourceId = UUID.fromString(messageTokens[1]);
+				boolean spawned = Integer.parseInt(messageTokens[2]) != 0;
+				Vector3f position = new Vector3f(
+					Float.parseFloat(messageTokens[3]),
+					Float.parseFloat(messageTokens[4]),
+					Float.parseFloat(messageTokens[5]));
+				float yaw = Float.parseFloat(messageTokens[6]);
+				String anim = messageTokens[7];
+				game.applyRemoteMushroomMonState(sourceId, spawned, position, yaw, anim);
+			}
+
+			// Handle MSHROOMEXP message — MushroomMon exploded near a player
+			// Format: (mshroomexp,sourceId,targetId)
+			if (messageTokens[0].compareTo("mshroomexp") == 0) {
+				if (messageTokens.length < 3) return;
+				UUID targetId = UUID.fromString(messageTokens[2]);
+				game.applyMushroomMonExplosion(targetId);
+			}
 		}
 	}
 
@@ -626,6 +649,29 @@ public class ProtocolClient extends GameConnectionClient {
 		try {
 			String message = "smileblind," + id.toString() + "," + index;
 			sendLoggedPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendMushroomMonStateMessage(boolean spawned, org.joml.Vector3f position, float yaw, String animationName) {
+		try {
+			String message = "mshroom," + id.toString() + "," + (spawned ? 1 : 0);
+			message += "," + position.x();
+			message += "," + position.y();
+			message += "," + position.z();
+			message += "," + yaw;
+			message += "," + (animationName == null || animationName.isBlank() ? "none" : animationName);
+			sendPacket(message);
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
+
+	public void sendMushroomMonExplosionMessage(java.util.UUID targetId) {
+		if (targetId == null) return;
+		try {
+			sendLoggedPacket("mshroomexp," + id.toString() + "," + targetId.toString());
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
