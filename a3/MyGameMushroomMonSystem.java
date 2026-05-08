@@ -21,13 +21,14 @@ public class MyGameMushroomMonSystem {
     private static final float STATE_BROADCAST_INTERVAL = 0.18f;
     private static final float SPAWN_DELAY   = 30.0f;
     private static final float EXPLODE_LINGER = 1.5f;
+    private static final float STATIC_SPAWN_EDGE = GameConstants.WORLD_EDGE_LIMIT - NPC_RADIUS;
 
-    // Static home positions for agents 1-10 (X, Z) — Y computed from terrain at runtime.
+    // Static home positions for agents 1-5 (X, Z); Y is computed from terrain at runtime.
     private static final float[][] STATIC_SPAWN_XZ = {
-        {  200f,    0f },  // East
-        { -200f,    0f },  // West
-        {   0f,   200f },  // North
-        {   0f,  -200f },  // South
+        {  STATIC_SPAWN_EDGE,    0f },  // East
+        { -STATIC_SPAWN_EDGE,    0f },  // West
+        {   0f,  STATIC_SPAWN_EDGE },  // North
+        {   0f, -STATIC_SPAWN_EDGE },  // South
         {  57f,   57f },  // Northeast
     };
 
