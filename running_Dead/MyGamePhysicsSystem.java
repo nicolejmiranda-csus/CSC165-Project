@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -16,7 +16,7 @@ import org.joml.Matrix4f;
 import org.joml.Quaternionf;
 import org.joml.Vector3f;
 
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 import tage.GameObject;
 import tage.RenderStates;
 import tage.TextureImage;
@@ -568,6 +568,7 @@ public class MyGamePhysicsSystem {
         serverRoundAuthoritative = true;
         serverIntermissionEndEpochMs = 0L;
         serverRoundEndEpochMs = 0L;
+        game.lighting.clearRoundTimeSync();
         game.state.roundStartingZombieId = null;
         game.state.zombieRoundActive = false;
         game.state.zombieIntermissionStarted = false;
@@ -618,6 +619,7 @@ public class MyGamePhysicsSystem {
         serverRoundAuthoritative = true;
         serverIntermissionEndEpochMs = 0L;
         serverRoundEndEpochMs = 0L;
+        game.lighting.clearRoundTimeSync();
         boolean humansWon = "humans".equals(winner);
         finishMatch(humansWon);
     }
@@ -765,8 +767,15 @@ public class MyGamePhysicsSystem {
             stylePotionGlass(object, 0.28f);
         }
         if (kind == MyGameBodyKind.BUILD_PICKUP && pickupType == PICKUP_TYPE_BUILD_GLASS) styleBuildPickupGlass(object);
+        stylePickupSurface(object, pickupType, kind);
+        object.getRenderStates().castsShadow(shouldPickupCastShadow(pickupType, kind));
         object.getRenderStates().disableRendering();
         return new MyGamePickupRecord(id, pickupType, kind, object, label);
+    }
+
+    private boolean shouldPickupCastShadow(int pickupType, MyGameBodyKind kind) {
+        return kind != MyGameBodyKind.POTION_PICKUP
+                && !(kind == MyGameBodyKind.BUILD_PICKUP && pickupType == PICKUP_TYPE_BUILD_GLASS);
     }
 
     private TextureImage buildPickupTexture(int pickupType) {
@@ -779,6 +788,62 @@ public class MyGamePhysicsSystem {
         object.getRenderStates().hasLighting(true);
         object.getRenderStates().isTransparent(true);
         object.getRenderStates().setOpacity(0.42f);
+        object.getRenderStates().isEnvironmentMapped(true);
+        object.getRenderStates().castsShadow(false);
+        object.getRenderStates().setTextureDetailBlend(true);
+        object.setDetailTextureImage(game.assets.glassFarTx);
+        object.setNormalMap(game.assets.glassNormalTx);
+        object.getRenderStates().setNormalMapping(true);
+    }
+
+    private void stylePickupSurface(GameObject object, int pickupType, MyGameBodyKind kind) {
+        if (object == null) return;
+        if (kind == MyGameBodyKind.ROCK_PICKUP) {
+            object.getRenderStates().setBumpMapping(true);
+            object.setNormalMap(game.assets.rockNormalTx);
+            object.getRenderStates().setNormalMapping(true);
+            object.getRenderStates().setTextureMappingMode(1);
+            object.getRenderStates().setTextureDetailBlend(true);
+            object.getRenderStates().setSurfaceScale(0.9f);
+            object.setDetailTextureImage(game.assets.rockFarTx);
+            return;
+        }
+        if (kind == MyGameBodyKind.INVIS_PICKUP) {
+            object.setDetailTextureImage(game.assets.leatherFarTx);
+            object.setNormalMap(game.assets.leatherNormalTx);
+            object.getRenderStates().setTextureDetailBlend(true);
+            object.getRenderStates().setNormalMapping(true);
+            return;
+        }
+        if (kind == MyGameBodyKind.BABY_ZOMBIE_PICKUP) {
+            object.setDetailTextureImage(game.assets.babyZombieFarTx);
+            object.getRenderStates().setTextureDetailBlend(true);
+            return;
+        }
+        if (kind == MyGameBodyKind.FLASHLIGHT_PICKUP) {
+            object.getRenderStates().hasLighting(true);
+            object.getRenderStates().isEnvironmentMapped(false);
+            object.getRenderStates().setHasSolidColor(true);
+            object.getRenderStates().setColor(new Vector3f(0.018f, 0.017f, 0.015f));
+            object.getRenderStates().setTextureDetailBlend(false);
+            object.getRenderStates().setNormalMapping(false);
+            return;
+        }
+        if (pickupType == PICKUP_TYPE_BUILD_METAL) {
+            object.getRenderStates().isEnvironmentMapped(true);
+            object.getRenderStates().setTextureDetailBlend(true);
+            object.setDetailTextureImage(game.assets.metalFarTx);
+            object.setNormalMap(game.assets.metalNormalTx);
+            object.getRenderStates().setNormalMapping(true);
+            return;
+        }
+        if (kind == MyGameBodyKind.BUILD_PICKUP && pickupType == PICKUP_TYPE_BUILD) {
+            object.setNormalMap(game.assets.woodNormalTx);
+            object.setDetailTextureImage(game.assets.woodFarTx);
+            object.getRenderStates().setNormalMapping(true);
+            object.getRenderStates().setTextureDetailBlend(true);
+            object.getRenderStates().setSurfaceScale(0.8f);
+        }
     }
 
     private float getPickupVisualScale(MyGameBodyKind kind) {
@@ -799,6 +864,12 @@ public class MyGamePhysicsSystem {
         object.getRenderStates().setColor(new Vector3f(1.0f, 0.08f, 0.06f));
         object.getRenderStates().isTransparent(true);
         object.getRenderStates().setOpacity(opacity);
+        object.getRenderStates().isEnvironmentMapped(true);
+        object.getRenderStates().castsShadow(false);
+        object.getRenderStates().setTextureDetailBlend(true);
+        object.setDetailTextureImage(game.assets.potionFarTx);
+        object.setNormalMap(game.assets.potionNormalTx);
+        object.getRenderStates().setNormalMapping(true);
     }
 
     private void activatePickup(MyGamePickupRecord pickup) {
@@ -1573,6 +1644,17 @@ public class MyGamePhysicsSystem {
         object.setLocalScale(new Matrix4f().scaling(type == PROJECTILE_ROCK ? 0.28f : 0.26f));
         object.getRenderStates().hasLighting(true);
         object.getRenderStates().setHasSolidColor(false);
+        object.getRenderStates().setTextureDetailBlend(true);
+        if (type == PROJECTILE_ROCK) {
+            object.setDetailTextureImage(game.assets.rockFarTx);
+            object.setNormalMap(game.assets.rockNormalTx);
+            object.getRenderStates().setNormalMapping(true);
+            object.getRenderStates().setBumpMapping(true);
+            object.getRenderStates().setTextureMappingMode(1);
+            object.getRenderStates().setSurfaceScale(0.9f);
+        } else {
+            object.setDetailTextureImage(game.assets.babyZombieFarTx);
+        }
 
         Quaternionf rot = getObjectRotation(game.assets.avatar);
         Matrix4f rotMat = new Matrix4f();
@@ -1885,11 +1967,16 @@ public class MyGamePhysicsSystem {
         boolean playerModel1 = !game.isPlayerModel2Selected();
         if (playerModel1) {
             game.assets.avatar.setTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel1Tx : game.assets.playerModel1Tx);
+            game.assets.avatar.setDetailTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel1FarTx : game.assets.playerModel1FarTx);
             rs.setHasSolidColor(false);
         } else {
             game.assets.avatar.setTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel2Tx : game.assets.playerModel2Tx);
+            game.assets.avatar.setDetailTextureImage(game.state.localPlayerZombie ? game.assets.zombiePlayerModel2FarTx : game.assets.playerModel2FarTx);
             rs.setHasSolidColor(false);
         }
+        rs.setTextureDetailBlend(true);
+        rs.castsShadow(true);
+        rs.receivesShadow(true);
         boolean invisible = game.state.localPlayerZombie && game.state.invisTimer > 0.0;
         if (invisible) rs.disableRendering();
         else rs.enableRendering();
@@ -1907,11 +1994,16 @@ public class MyGamePhysicsSystem {
         boolean playerModel1 = !"playerModel2".equals(ghost.getAvatarType());
         if (playerModel1) {
             ghost.setTextureImage(zombie ? game.assets.zombiePlayerModel1Tx : game.assets.playerModel1Tx);
+            ghost.setDetailTextureImage(zombie ? game.assets.zombiePlayerModel1FarTx : game.assets.playerModel1FarTx);
             rs.setHasSolidColor(false);
         } else {
             ghost.setTextureImage(zombie ? game.assets.zombiePlayerModel2Tx : game.assets.playerModel2Tx);
+            ghost.setDetailTextureImage(zombie ? game.assets.zombiePlayerModel2FarTx : game.assets.playerModel2FarTx);
             rs.setHasSolidColor(false);
         }
+        rs.setTextureDetailBlend(true);
+        rs.castsShadow(true);
+        rs.receivesShadow(true);
         if (invisible) rs.disableRendering();
         else rs.enableRendering();
         rs.isTransparent(false);
