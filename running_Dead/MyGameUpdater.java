@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 public class MyGameUpdater {
     private final MyGame game;
@@ -23,6 +23,7 @@ public class MyGameUpdater {
         game.smilingManSystem.update((float) game.state.elapsedTime);
         game.cameraSystem.updateCameraLimits();
         game.cameraSystem.updateMainCamera();
+        game.lighting.updateDayNight((float) game.state.elapsedTime);
         game.soundSystem.update((float) game.state.elapsedTime);
         game.buildSystem.update((float) game.state.elapsedTime);
         game.buildSystem.updateBuildPreview();
