@@ -1,0 +1,17 @@
+package running_Dead;
+
+enum MyGameBodyKind {
+    LOCAL_PLAYER,
+    REMOTE_PLAYER,
+    DASH_PICKUP,
+    INVIS_PICKUP,
+    BUILD_PICKUP,
+    ROCK_PICKUP,
+    BABY_ZOMBIE_PICKUP,
+    FLASHLIGHT_PICKUP,
+    POTION_PICKUP,
+    BUILD_PIECE,
+    SCENERY_BLOCKER,
+    PROJECTILE,
+    TERRAIN
+}

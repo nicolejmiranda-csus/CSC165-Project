@@ -339,6 +339,8 @@ public class Utils
 			System.err.println("Error reading '" + fileName + '"');
 			throw new RuntimeException(e);
 		}
+		if (img == null)
+			throw new RuntimeException("Unsupported or unreadable image file '" + fileName + "'");
 		return img;
 	}
 

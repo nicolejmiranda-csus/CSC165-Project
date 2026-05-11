@@ -131,6 +131,9 @@ public abstract class VariableFrameRateGame implements KeyListener, MouseListene
 	/** Override to use the screen overlay as an edge vignette instead of a flat overlay. */
 	public float getScreenFlashVignette() { return 0.0f; }
 
+	/** Override to tint the procedural cloud layer toward night. 0 is day, 1 is night. */
+	public float getCloudNightFactor() { return 0.0f; }
+
 	/**
 	* Handles key and mouse listener tasks.
 	* The game application should override this function, and the <i>last</i> line

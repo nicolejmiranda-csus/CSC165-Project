@@ -10,11 +10,13 @@ out vec2 tc;
 out vec3 varyingNormal;
 out vec3 varyingVertPos;
 out vec3 vVertPos;
+out vec4 shadowCoord;
 
 uniform mat4 m_matrix;
 uniform mat4 v_matrix;
 uniform mat4 p_matrix;
 uniform mat4 norm_matrix;
+uniform mat4 lightVP_matrix;
 
 layout (std430, binding=1) readonly buffer skinMatrixBuffer
 {	mat4 skin_matrices[];
@@ -79,8 +81,10 @@ void main()
 	vert_nor = normalize(vert_nor);
 	
 	tc  = vertex_texcoord;
+	vec4 worldPos = m_matrix * vert_pos;
 	varyingNormal   = (norm_matrix * vec4(vert_nor,1.0)).xyz;
-	varyingVertPos  = (m_matrix * vert_pos).xyz;
-	vVertPos = (v_matrix * m_matrix * vert_pos).xyz;
-	gl_Position = p_matrix * v_matrix * m_matrix * vert_pos;
+	varyingVertPos  = worldPos.xyz;
+	vVertPos = (v_matrix * worldPos).xyz;
+	shadowCoord = lightVP_matrix * worldPos;
+	gl_Position = p_matrix * v_matrix * worldPos;
 }
