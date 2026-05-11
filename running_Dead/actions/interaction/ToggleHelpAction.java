@@ -1,6 +1,6 @@
-package a3.actions.interaction;
+package running_Dead.actions.interaction;
 
-import a3.MyGame;
+import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
