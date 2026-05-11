@@ -41,6 +41,15 @@ public class RenderStates {
 	private boolean wireframe = false;
 	private boolean renderHiddenFaces = false;
 	private boolean isEnvironmentMapped = false;
+	private boolean castsShadow = true;
+	private boolean receivesShadow = true;
+	private boolean usesBumpMapping = false;
+	private boolean usesNormalMapping = false;
+	private boolean usesFog = true;
+	private boolean usesTextureDetailBlend = false;
+	private int textureMappingMode = 0; // 0=mesh UVs, 1=world-space box projection
+	private int bumpStyle = 0; // 0=stone/rock, 1=grass/ground
+	private float surfaceScale = 1.0f;
 	private Matrix4f modelOrientationCorrection = new Matrix4f();
 
 	// ---------------- ACCESSORS ---------------------
@@ -81,6 +90,51 @@ public class RenderStates {
 	/** sets whether or not this object is environment mapped (simulates chrome) */
 	public void isEnvironmentMapped(boolean i) {
 		isEnvironmentMapped = i;
+	}
+
+	/** sets whether this object casts into the shadow map */
+	public void castsShadow(boolean c) {
+		castsShadow = c;
+	}
+
+	/** sets whether this object receives shadows from the shadow map */
+	public void receivesShadow(boolean r) {
+		receivesShadow = r;
+	}
+
+	/** enables procedural bump mapping for rough stone/terrain-like surfaces */
+	public void setBumpMapping(boolean b) {
+		usesBumpMapping = b;
+	}
+
+	/** enables image normal mapping when the GameObject has a normal-map texture */
+	public void setNormalMapping(boolean n) {
+		usesNormalMapping = n;
+	}
+
+	/** sets whether this object blends into the renderer's distance fog */
+	public void setFogEnabled(boolean f) {
+		usesFog = f;
+	}
+
+	/** sets whether this object blends primary and far/detail textures by distance */
+	public void setTextureDetailBlend(boolean b) {
+		usesTextureDetailBlend = b;
+	}
+
+	/** sets the surface mapping mode: 0=mesh UVs, 1=world-space box projection */
+	public void setTextureMappingMode(int m) {
+		textureMappingMode = m;
+	}
+
+	/** sets the procedural bump style: 0=stone/rock, 1=grass/ground */
+	public void setBumpStyle(int b) {
+		bumpStyle = b;
+	}
+
+	/** sets the scale used by normal/bump procedural surface effects */
+	public void setSurfaceScale(float s) {
+		surfaceScale = s;
 	}
 
 	/** sets whether or not this object is rendered in wireframe mode */
@@ -155,6 +209,51 @@ public class RenderStates {
 	 */
 	public boolean isEnvironmentMapped() {
 		return isEnvironmentMapped;
+	}
+
+	/** returns true if this object should be rendered into the shadow map */
+	public boolean castsShadow() {
+		return castsShadow;
+	}
+
+	/** returns true if this object should receive sampled shadow-map shadows */
+	public boolean receivesShadow() {
+		return receivesShadow;
+	}
+
+	/** returns true if this object uses procedural bump mapping */
+	public boolean usesBumpMapping() {
+		return usesBumpMapping;
+	}
+
+	/** returns true if this object uses image normal mapping */
+	public boolean usesNormalMapping() {
+		return usesNormalMapping;
+	}
+
+	/** returns true if this object uses distance fog */
+	public boolean usesFog() {
+		return usesFog;
+	}
+
+	/** returns true if this object blends primary and far/detail textures by distance */
+	public boolean usesTextureDetailBlend() {
+		return usesTextureDetailBlend;
+	}
+
+	/** returns the texture mapping mode: 0=mesh UVs, 1=world-space box projection */
+	public int getTextureMappingMode() {
+		return textureMappingMode;
+	}
+
+	/** returns the procedural bump style: 0=stone/rock, 1=grass/ground */
+	public int getBumpStyle() {
+		return bumpStyle;
+	}
+
+	/** returns the scale used by normal/bump procedural surface effects */
+	public float getSurfaceScale() {
+		return surfaceScale;
 	}
 
 	/**
@@ -248,6 +347,15 @@ public class RenderStates {
 		temp.setWireframe(this.wireframe);
 		temp.setRenderHiddenFaces(this.renderHiddenFaces);
 		temp.isEnvironmentMapped(this.isEnvironmentMapped);
+		temp.castsShadow(this.castsShadow);
+		temp.receivesShadow(this.receivesShadow);
+		temp.setBumpMapping(this.usesBumpMapping);
+		temp.setNormalMapping(this.usesNormalMapping);
+		temp.setFogEnabled(this.usesFog);
+		temp.setTextureDetailBlend(this.usesTextureDetailBlend);
+		temp.setTextureMappingMode(this.textureMappingMode);
+		temp.setBumpStyle(this.bumpStyle);
+		temp.setSurfaceScale(this.surfaceScale);
 		temp.setModelOrientationCorrection(this.getModelOrientationCorrection());
 		return temp;
 	}
