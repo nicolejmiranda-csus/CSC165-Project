@@ -1,8 +1,8 @@
-package a3;
+package running_Dead;
 
 import java.util.UUID;
 
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 import tage.RenderStates;
 
 public class MyGameVisualSystem {
@@ -28,18 +28,21 @@ public class MyGameVisualSystem {
     }
 
     public void useSky04() {
+        game.state.dayNightEnabled = false;
         MyGame.getEngine().getSceneGraph().setActiveSkyBoxTexture(game.assets.sky04);
         MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(true);
         game.hudSystem.showEvent("SKYBOX sky04", 1.0);
     }
 
     public void useSky15Night() {
+        game.state.dayNightEnabled = false;
         MyGame.getEngine().getSceneGraph().setActiveSkyBoxTexture(game.assets.sky15Night);
         MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(true);
         game.hudSystem.showEvent("SKYBOX sky15_night", 1.0);
     }
 
     public void toggleSkyboxOff() {
+        game.state.dayNightEnabled = false;
         MyGame.getEngine().getSceneGraph().setSkyBoxEnabled(false);
         game.hudSystem.showEvent("SKYBOX OFF", 1.0);
     }
@@ -81,6 +84,10 @@ public class MyGameVisualSystem {
     }
 
     public void randomizeRoundSkybox(java.util.UUID roundZombieId, long roundToken) {
+        if (game.state.dayNightEnabled) {
+            game.lighting.randomizeRoundTimeSlot(roundZombieId, roundToken);
+            return;
+        }
         long seed = roundToken == 0L ? System.currentTimeMillis() : roundToken;
         if (roundZombieId != null) {
             seed ^= roundZombieId.getMostSignificantBits();
