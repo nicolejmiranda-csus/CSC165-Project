@@ -1,4 +1,4 @@
-package a3.networking;
+package running_Dead.networking;
 
 import java.util.UUID;
 
@@ -23,6 +23,9 @@ public class GhostAvatar extends GameObject {
 	private final String avatarType;
 	private final AnimatedShape animatedShape;
 	private String activeAnimation = "";
+	GameObject heldItem;
+	int heldItemType = 0;
+	boolean heldFlashlightOn = false;
 
 	public GhostAvatar(UUID id, String type, ObjShape s, TextureImage t, Vector3f p) {
 		super(GameObject.root(), s, t);
