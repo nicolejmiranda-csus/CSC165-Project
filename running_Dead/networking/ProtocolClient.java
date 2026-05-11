@@ -1,4 +1,4 @@
-package a3.networking;
+package running_Dead.networking;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -6,8 +6,8 @@ import java.util.UUID;
 
 import org.joml.Vector3f;
 
-import a3.GameConstants;
-import a3.MyGame;
+import running_Dead.GameConstants;
+import running_Dead.MyGame;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.client.GameConnectionClient;
 
@@ -133,7 +133,7 @@ public class ProtocolClient extends GameConnectionClient {
 			}
 
 			// Handle MOVE message.
-			// Format: (move,remoteId,x,y,z,yaw)
+			// Format: (move,remoteId,x,y,z,yaw[,equippedItem,flashlightOn])
 			if (messageTokens[0].compareTo("move") == 0) {
 				if (messageTokens.length < 6) {
 					System.out.println("bad move packet: " + strMessage);
@@ -152,6 +152,11 @@ public class ProtocolClient extends GameConnectionClient {
 				float ghostYaw = Float.parseFloat(messageTokens[5]);
 
 				ghostManager.updateGhostAvatar(ghostID, ghostPosition, ghostYaw);
+				if (messageTokens.length >= 8) {
+					int equippedItem = Integer.parseInt(messageTokens[6]);
+					boolean flashlightOn = Integer.parseInt(messageTokens[7]) != 0;
+					ghostManager.updateGhostHeldItem(ghostID, equippedItem, flashlightOn);
+				}
 			}
 
 			// Handle BUILD message
@@ -478,15 +483,17 @@ public class ProtocolClient extends GameConnectionClient {
 	}
 
 	// Informs the server that the local avatar has changed position.
-	// Message Format: (move,localId,x,y,z,yaw)
+	// Message Format: (move,localId,x,y,z,yaw,equippedItem,flashlightOn)
 
-	public void sendMoveMessage(Vector3f position, float yaw) {
+	public void sendMoveMessage(Vector3f position, float yaw, int equippedItem, boolean flashlightOn) {
 		try {
 			String message = "move," + id.toString();
 			message += "," + position.x();
 			message += "," + position.y();
 			message += "," + position.z();
 			message += "," + yaw;
+			message += "," + equippedItem;
+			message += "," + (flashlightOn ? 1 : 0);
 
 			sendLoggedPacket(message);
 		} catch (IOException e) {
