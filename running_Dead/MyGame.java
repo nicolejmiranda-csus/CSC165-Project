@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.awt.event.MouseEvent;
 import java.util.UUID;
@@ -7,9 +7,10 @@ import javax.swing.JOptionPane;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import a3.networking.GhostManager;
+import running_Dead.networking.GhostManager;
 import tage.Camera;
 import tage.Engine;
+import tage.GameObject;
 import tage.ObjShape;
 import tage.TextureImage;
 import tage.VariableFrameRateGame;
@@ -92,10 +93,10 @@ public class MyGame extends VariableFrameRateGame {
 			game.setSelectedAvatarType(args.length >= 4 ? args[3] : chooseAvatarPopup());
 		} else {
 			System.out.println("Usage:");
-			System.out.println("Single-player: java a3.MyGame");
-			System.out.println("Server       : java a3.server.NetworkingServer <port> <UDP|TCP>");
-			System.out.println("Auto client  : java a3.MyGame AUTO [avatarType]");
-			System.out.println("Manual client: java a3.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
+			System.out.println("Single-player: java running_Dead.MyGame");
+			System.out.println("Server       : java running_Dead.server.NetworkingServer <port> <UDP|TCP>");
+			System.out.println("Auto client  : java running_Dead.MyGame AUTO [avatarType]");
+			System.out.println("Manual client: java running_Dead.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
 			System.out.println("Note         : NetworkingServer tracks round, pickup, role, health, build, and animation state.");
 			System.out.println("Auto client  : searches the LAN for a running NetworkingServer.");
 			return;
@@ -169,6 +170,12 @@ public class MyGame extends VariableFrameRateGame {
 	@Override
 	public float getScreenFlashVignette() {
 		return state.blindTimer <= 0.0 && state.stareWarningTimer > 0.0 ? 1.0f : 0.0f;
+	}
+
+	@Override
+	public float getCloudNightFactor() {
+		if (!state.dayNightEnabled) return 0.0f;
+		return state.dayNightTime >= state.daySlotSeconds ? 1.0f : 0.0f;
 	}
 
 	@Override
@@ -589,8 +596,80 @@ public class MyGame extends VariableFrameRateGame {
 		return "playerModel2".equals(avatarType) ? assets.playerModel2Tx : assets.playerModel1Tx;
 	}
 
+	public TextureImage getGhostDetailTexture(String avatarType) {
+		return "playerModel2".equals(avatarType) ? assets.playerModel2FarTx : assets.playerModel1FarTx;
+	}
+
 	public Matrix4f getGhostScale(String avatarType) {
 		return (new Matrix4f()).scaling(1.0f);
+	}
+
+	public ObjShape getRemoteHeldItemShape(int itemType) {
+		if (itemType == GameConstants.ITEM_FLASHLIGHT) return assets.flashlightS;
+		if (itemType == GameConstants.ITEM_POTION) return assets.healthPotionS;
+		if (itemType == GameConstants.ITEM_ROCK) return assets.rock2S;
+		if (itemType == GameConstants.ITEM_BABY_ZOMBIE) return assets.babyZombieS;
+		return null;
+	}
+
+	public TextureImage getRemoteHeldItemTexture(int itemType) {
+		if (itemType == GameConstants.ITEM_FLASHLIGHT) return assets.flashlightTx;
+		if (itemType == GameConstants.ITEM_POTION) return assets.healthPotionTx;
+		if (itemType == GameConstants.ITEM_ROCK) return assets.rockTx;
+		if (itemType == GameConstants.ITEM_BABY_ZOMBIE) return assets.babyZombieTx;
+		return null;
+	}
+
+	public float getRemoteHeldItemScale(String avatarType, int itemType) {
+		boolean model2 = "playerModel2".equals(avatarType);
+		if (itemType == GameConstants.ITEM_FLASHLIGHT) return model2 ? 0.18f : 0.23f;
+		if (itemType == GameConstants.ITEM_POTION) return model2 ? 0.12f : 0.10f;
+		if (itemType == GameConstants.ITEM_ROCK) return model2 ? 0.18f : 0.20f;
+		if (itemType == GameConstants.ITEM_BABY_ZOMBIE) return model2 ? 0.13f : 0.15f;
+		return 1.0f;
+	}
+
+	public Vector3f getRemoteHeldItemOffset(String avatarType, int itemType) {
+		boolean model2 = "playerModel2".equals(avatarType);
+		if (itemType == GameConstants.ITEM_FLASHLIGHT)
+			return new Vector3f(model2 ? -1.18f : -0.95f, model2 ? 1.14f : 1.34f, model2 ? 0.08f : 0.10f);
+		if (itemType == GameConstants.ITEM_POTION)
+			return new Vector3f(model2 ? -1.14f : -0.92f, model2 ? 1.12f : 1.32f, model2 ? 0.10f : 0.12f);
+		return new Vector3f(model2 ? -1.12f : -0.92f, model2 ? 1.12f : 1.32f, model2 ? 0.12f : 0.14f);
+	}
+
+	public Matrix4f getRemoteHeldItemRotation(int itemType) {
+		if (itemType == GameConstants.ITEM_ROCK) return new Matrix4f().rotationY((float) Math.toRadians(30.0f));
+		if (itemType == GameConstants.ITEM_BABY_ZOMBIE) return new Matrix4f().rotationY((float) Math.toRadians(180.0f));
+		return new Matrix4f().identity();
+	}
+
+	public void styleRemoteHeldItem(GameObject item, int itemType) {
+		if (item == null) return;
+		if (itemType == GameConstants.ITEM_FLASHLIGHT) {
+			item.getRenderStates().hasLighting(true);
+			item.getRenderStates().isEnvironmentMapped(false);
+			item.getRenderStates().setHasSolidColor(true);
+			item.getRenderStates().setColor(new Vector3f(0.018f, 0.017f, 0.015f));
+			item.getRenderStates().setTextureDetailBlend(false);
+			item.getRenderStates().setNormalMapping(false);
+			item.getRenderStates().castsShadow(true);
+		} else if (itemType == GameConstants.ITEM_POTION) {
+			physicsSystem.stylePotionGlass(item, 0.42f);
+		} else if (itemType == GameConstants.ITEM_ROCK) {
+			item.getRenderStates().hasLighting(true);
+			item.getRenderStates().setBumpMapping(true);
+			item.setNormalMap(assets.rockNormalTx);
+			item.getRenderStates().setNormalMapping(true);
+			item.getRenderStates().setTextureMappingMode(1);
+			item.getRenderStates().setTextureDetailBlend(true);
+			item.getRenderStates().setSurfaceScale(0.9f);
+			item.setDetailTextureImage(assets.rockFarTx);
+		} else if (itemType == GameConstants.ITEM_BABY_ZOMBIE) {
+			item.getRenderStates().hasLighting(true);
+			item.setDetailTextureImage(assets.babyZombieFarTx);
+			item.getRenderStates().setTextureDetailBlend(true);
+		}
 	}
 
 	public GhostManager getGhostManager() {
