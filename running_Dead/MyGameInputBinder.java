@@ -1,10 +1,10 @@
-package a3;
+package running_Dead;
 
-import a3.actions.build.*;
-import a3.actions.camera.*;
-import a3.actions.equipables.*;
-import a3.actions.interaction.*;
-import a3.actions.movement.*;
+import running_Dead.actions.build.*;
+import running_Dead.actions.camera.*;
+import running_Dead.actions.equipables.*;
+import running_Dead.actions.interaction.*;
+import running_Dead.actions.movement.*;
 import tage.input.*;
 import net.java.games.input.Component.Identifier.*;
 
