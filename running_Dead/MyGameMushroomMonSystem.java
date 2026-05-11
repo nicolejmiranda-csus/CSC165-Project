@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.Collections;
 import java.util.List;
@@ -8,7 +8,7 @@ import java.util.UUID;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 
 public class MyGameMushroomMonSystem {
     public static final int TOTAL_COUNT = 6; // 1 random-spawn + 5 static-spawn
