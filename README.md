@@ -148,11 +148,3 @@ I updated the project scripts for the new package name.
 * `run_server.bat`
 * `run_singleplayer.bat`
 * `clearGAMEclassFiles.bat`
-
-### Verification
-
-I checked the project after the changes.
-
-* `buildTAGE.bat` passed.
-* `compile.bat` passed.
-* `git diff --check` passed except for normal CRLF warnings.
