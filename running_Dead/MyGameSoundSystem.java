@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.HashMap;
 import java.util.HashSet;
@@ -6,7 +6,7 @@ import java.util.UUID;
 
 import org.joml.Vector3f;
 
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 import tage.Camera;
 import tage.audio.AudioResource;
 import tage.audio.AudioResourceType;
