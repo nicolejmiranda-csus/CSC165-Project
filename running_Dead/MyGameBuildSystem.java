@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,7 +80,8 @@ public class MyGameBuildSystem {
         else game.assets.buildPreview.setLocalScale((new Matrix4f()).scaling(1.414f, game.state.buildWallHalfH, 1f));
         game.assets.buildPreview.setLocalRotation(getBuildPieceRotation());
         game.assets.buildPreview.setLocalTranslation((new Matrix4f()).translation(p));
-        styleBuildPiece(game.assets.buildPreview, game.state.buildMaterialType, 0.42f);
+        styleBuildPiece(game.assets.buildPreview, game.state.buildMaterialType, 0.70f);
+        game.assets.buildPreview.getRenderStates().castsShadow(false);
     }
 
     public void update(float dt) {
@@ -255,7 +256,7 @@ public class MyGameBuildSystem {
     }
 
     private boolean isGroundSupported(Vector3f p) {
-        return p.y <= game.state.buildGrid + 0.05f;
+        return (p.y - buildTerrainHeight(p.x, p.z)) <= game.state.buildGrid + 0.05f;
     }
 
     private boolean isSupportUnder(MyGameBuildMeta support, Vector3f p) {
@@ -312,12 +313,38 @@ public class MyGameBuildSystem {
         if (piece == null) return;
         piece.getRenderStates().hasLighting(true);
         piece.getRenderStates().setHasSolidColor(false);
+        piece.getRenderStates().setBumpMapping(false);
+        piece.getRenderStates().setNormalMapping(false);
+        piece.getRenderStates().isEnvironmentMapped(false);
+        piece.getRenderStates().castsShadow(true);
+        piece.getRenderStates().receivesShadow(true);
+        piece.getRenderStates().setTextureMappingMode(0);
+        piece.getRenderStates().setSurfaceScale(1.0f);
+        piece.getRenderStates().setTextureDetailBlend(true);
+        piece.setNormalMap(null);
         if (materialType == GameConstants.BUILD_MATERIAL_GLASS) {
             piece.getRenderStates().isTransparent(true);
             piece.getRenderStates().setOpacity(glassOpacity);
+            piece.getRenderStates().isEnvironmentMapped(true);
+            piece.getRenderStates().castsShadow(false);
+            piece.setDetailTextureImage(game.assets.glassFarTx);
+            piece.setNormalMap(game.assets.glassNormalTx);
+            piece.getRenderStates().setNormalMapping(true);
         } else {
             piece.getRenderStates().isTransparent(false);
             piece.getRenderStates().setOpacity(1.0f);
+            if (materialType == GameConstants.BUILD_MATERIAL_METAL) {
+                piece.getRenderStates().isEnvironmentMapped(true);
+                piece.getRenderStates().setSurfaceScale(0.8f);
+                piece.setDetailTextureImage(game.assets.metalFarTx);
+                piece.setNormalMap(game.assets.metalNormalTx);
+                piece.getRenderStates().setNormalMapping(true);
+            } else {
+                piece.setNormalMap(game.assets.woodNormalTx);
+                piece.setDetailTextureImage(game.assets.woodFarTx);
+                piece.getRenderStates().setNormalMapping(true);
+                piece.getRenderStates().setSurfaceScale(0.75f);
+            }
         }
     }
 
@@ -393,11 +420,15 @@ public class MyGameBuildSystem {
                 case 3: z -= roofInset; break;
             }
         }
-        return new Vector3f(x, y, z);
+        return new Vector3f(x, buildTerrainHeight(x, z) + y, z);
     }
 
     private String buildPieceKey(Vector3f p) {
         return game.state.buildPieceType == 0 ? String.format("%.2f,%.2f,%.2f,W,%d", p.x, p.y, p.z, game.state.buildModeType) : String.format("%.2f,%.2f,%.2f,R,%d", p.x, p.y, p.z, game.state.buildRoofDir);
+    }
+
+    private float buildTerrainHeight(float x, float z) {
+        return game.worldBuilder.terrainHeightCpu(x, z);
     }
 }
 
