@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.awt.Cursor;
 import java.awt.Robot;
@@ -8,8 +8,8 @@ import java.util.UUID;
 
 import com.jogamp.opengl.awt.GLCanvas;
 
-import a3.networking.GhostManager;
-import a3.networking.ProtocolClient;
+import running_Dead.networking.GhostManager;
+import running_Dead.networking.ProtocolClient;
 import tage.CameraOrbit3D;
 import tage.GameObject;
 import tage.input.InputManager;
@@ -70,6 +70,15 @@ public class MyGameState {
     float shoulderOffsetY = 0.75f;
 
     boolean axesVisible = true;
+    boolean dayNightEnabled = true;
+    boolean nightSkyActive = false;
+    float dayNightTime = 35.0f;
+    boolean dayNightServerSynced = false;
+    float dayNightRoundStartOffset = 35.0f;
+    long dayNightRoundEndEpochMs = 0L;
+    final float daySlotSeconds = 150.0f;
+    final float nightSlotSeconds = 150.0f;
+    final float dayNightCycleSeconds = daySlotSeconds + nightSlotSeconds;
 
     boolean buildMode = false;
     int buildHeightLevel = 0;
