@@ -1,4 +1,4 @@
-package a3.server;
+package running_Dead.server;
 
 import java.io.IOException;
 import java.net.InetAddress;
@@ -113,7 +113,9 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					UUID moveClientId = UUID.fromString(messageTokens[1]);
 					String[] movePos = { messageTokens[2], messageTokens[3], messageTokens[4] };
 					String moveYaw = messageTokens[5];
-					sendMoveMessages(moveClientId, movePos, moveYaw);
+					String equippedItem = messageTokens.length >= 7 ? messageTokens[6] : "0";
+					String flashlightOn = messageTokens.length >= 8 ? messageTokens[7] : "0";
+					sendMoveMessages(moveClientId, movePos, moveYaw, equippedItem, flashlightOn);
 					return;
 
 				case "build":
@@ -324,14 +326,16 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 		}
 	}
 
-	// Message Format: (move,remoteId,x,y,z,yaw)
-	public void sendMoveMessages(UUID clientID, String[] position, String yaw) {
+	// Message Format: (move,remoteId,x,y,z,yaw,equippedItem,flashlightOn)
+	public void sendMoveMessages(UUID clientID, String[] position, String yaw, String equippedItem, String flashlightOn) {
 		try {
 			String message = "move," + clientID.toString();
 			message += "," + position[0];
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			message += "," + equippedItem;
+			message += "," + flashlightOn;
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
