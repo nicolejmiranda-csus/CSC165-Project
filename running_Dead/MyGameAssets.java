@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -28,11 +28,17 @@ public class MyGameAssets {
 
     // Textures
     TextureImage playerModel1Tx, zombiePlayerModel1Tx, playerModel2Tx, zombiePlayerModel2Tx, healthPotionTx;
+    TextureImage playerModel1FarTx, zombiePlayerModel1FarTx, playerModel2FarTx, zombiePlayerModel2FarTx;
     TextureImage smilingManTx, mushroomMonTx;
+    TextureImage smilingManFarTx, mushroomMonFarTx;
     TextureImage grassTx, homeTx, heightMaptx, flashlightTx, tableTx, dolphinTx;
+    TextureImage grassFarTx, woodFarTx, metalFarTx, glassFarTx, rockFarTx, brickFarTx;
+    TextureImage tableFarTx, flashlightFarTx, potionFarTx, dolphinFarTx, leafFarTx, leatherFarTx, babyZombieFarTx;
     TextureImage[] heightMapTextures;
     int activeHeightMapIndex = 0;
     TextureImage woodBlockTx, metalBuildTx, glassBuildTx, rockTx, hoodTx, babyZombieTx;
+    TextureImage grassNormalTx, woodNormalTx, rockNormalTx, metalNormalTx, glassNormalTx, brickNormalTx;
+    TextureImage leafNormalTx, leatherNormalTx, potionNormalTx, flashlightNormalTx, tableNormalTx, roughNormalTx;
     TextureImage rockTx2, leafTx, deadOakTreeTx, deadSpruceTreeTx, oakTreeTx, spruceTreeTx, treeWoodTx;
     TextureImage[] sceneryRockTx, sceneryTreeTx;
 
@@ -60,6 +66,8 @@ public class MyGameAssets {
     final HashMap<GameObject, Integer> sceneryTreeIndices = new HashMap<>();
 
     // Lights
+    Light sunLight;
+    Light playerNightLight;
     Light flashlightSpotlight;
 
     // Skyboxes
