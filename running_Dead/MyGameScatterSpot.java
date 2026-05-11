@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 class MyGameScatterSpot {
     final float x;
