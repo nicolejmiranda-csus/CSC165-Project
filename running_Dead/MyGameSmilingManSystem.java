@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -10,7 +10,7 @@ import java.util.UUID;
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 import tage.shapes.AnimatedShape;
 
 public class MyGameSmilingManSystem {
