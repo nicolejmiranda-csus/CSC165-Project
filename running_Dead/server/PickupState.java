@@ -1,4 +1,4 @@
-package a3.server;
+package running_Dead.server;
 
 class PickupState {
     final int id;
