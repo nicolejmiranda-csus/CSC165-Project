@@ -1,11 +1,11 @@
-package a3;
+package running_Dead;
 
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.net.UnknownHostException;
 
-import a3.networking.ProtocolClient;
+import running_Dead.networking.ProtocolClient;
 import tage.networking.NetworkDiscovery;
 
 public class MyGameNetworkingSystem {
@@ -39,7 +39,8 @@ public class MyGameNetworkingSystem {
 
     public void sendPlayerTransform() {
         if (game.state.protClient != null && game.state.isClientConnected) {
-            game.state.protClient.sendMoveMessage(game.assets.avatar.getWorldLocation(), game.state.playerYaw);
+            game.state.protClient.sendMoveMessage(game.assets.avatar.getWorldLocation(), game.state.playerYaw,
+                    game.state.equippedItem, game.state.flashlightOn);
         }
     }
 
