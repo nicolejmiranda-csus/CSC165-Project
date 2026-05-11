@@ -1,8 +1,11 @@
-package a3;
+package running_Dead;
 
+import java.awt.image.BufferedImage;
+import java.io.File;
 import java.util.ArrayList;
 import java.util.Random;
 import java.util.UUID;
+import javax.imageio.ImageIO;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
@@ -13,6 +16,8 @@ public class MyGameWorldBuilder {
     private final Random worldRandom = new Random(1652026L);
     private final Random spawnRandom = new Random();
     private final ArrayList<MyGameScatterSpot> scatterSpots = new ArrayList<>();
+    private BufferedImage cachedHeightMapImage;
+    private String cachedHeightMapFile;
     private static final float WORLD_SCATTER_RADIUS = GameConstants.WORLD_EDGE_LIMIT - 10.0f;
     private static final float PLAYER_SPAWN_RADIUS = GameConstants.WORLD_EDGE_LIMIT - 22.0f;
 
@@ -46,6 +51,10 @@ public class MyGameWorldBuilder {
         a.avatar.setLocalScale((new Matrix4f()).scaling(1.0f));
         a.avatar.setLocalRotation((new Matrix4f()).rotationY((float) Math.toRadians(180f)));
         a.avatar.getRenderStates().hasLighting(true);
+        a.avatar.setDetailTextureImage(game.isPlayerModel2Selected() ? a.playerModel2FarTx : a.playerModel1FarTx);
+        a.avatar.getRenderStates().setTextureDetailBlend(true);
+        a.avatar.getRenderStates().castsShadow(true);
+        a.avatar.getRenderStates().receivesShadow(true);
         a.avatar.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
         s.playerYaw = 180.0f;
         game.animationSystem.startIdleIfAnimatedAvatar();
@@ -62,6 +71,10 @@ public class MyGameWorldBuilder {
             smilingMan.setLocalScale((new Matrix4f()).scaling(GameConstants.SMILING_MAN_SCALE));
             smilingMan.setLocalRotation((new Matrix4f()).identity());
             smilingMan.getRenderStates().hasLighting(true);
+            smilingMan.setDetailTextureImage(a.smilingManFarTx);
+            smilingMan.getRenderStates().setTextureDetailBlend(true);
+            smilingMan.getRenderStates().castsShadow(true);
+            smilingMan.getRenderStates().receivesShadow(true);
             smilingMan.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
             smilingMan.getRenderStates().disableRendering();
             a.smilingMen.add(smilingMan);
@@ -79,6 +92,10 @@ public class MyGameWorldBuilder {
             obj.setLocalScale((new Matrix4f()).scaling(GameConstants.MUSHROOM_MON_SCALE));
             obj.setLocalRotation((new Matrix4f()).identity());
             obj.getRenderStates().hasLighting(true);
+            obj.setDetailTextureImage(a.mushroomMonFarTx);
+            obj.getRenderStates().setTextureDetailBlend(true);
+            obj.getRenderStates().castsShadow(true);
+            obj.getRenderStates().receivesShadow(true);
             obj.getRenderStates().setModelOrientationCorrection((new Matrix4f()).identity());
             obj.getRenderStates().disableRendering();
             a.mushMons.add(obj);
@@ -90,13 +107,18 @@ public class MyGameWorldBuilder {
         a.tableCovers.clear();
         for (int i = 0; i < GameConstants.TABLE_COVER_COUNT; i++) {
             float scale = randomRange(0.48f, 0.62f);
-            Vector3f p = randomTerrainLocation(0f, 16.0f, 5.5f);
-            p.y = plantedLift(a.tableS, scale, 0.02f);
+            Vector3f p = randomTerrainLocation(plantedLift(a.tableS, scale, 0.02f), 16.0f, 5.5f);
+            if (p == null) continue;
             GameObject table = new GameObject(GameObject.root(), a.tableS, a.tableTx);
             table.setLocalTranslation((new Matrix4f()).translation(p));
             table.setLocalScale((new Matrix4f()).scaling(scale));
             table.setLocalRotation((new Matrix4f()).rotationY(randomRadians()));
             table.getRenderStates().hasLighting(true);
+            table.setNormalMap(a.tableNormalTx);
+            table.setDetailTextureImage(a.tableFarTx);
+            table.getRenderStates().setNormalMapping(true);
+            table.getRenderStates().setTextureDetailBlend(true);
+            table.getRenderStates().setSurfaceScale(0.65f);
             a.tableCovers.add(table);
             if (i == 0) a.table = table;
         }
@@ -111,11 +133,20 @@ public class MyGameWorldBuilder {
         a.terrain.getRenderStates().hasLighting(true);
         a.terrain.getRenderStates().setTiling(1);
         a.terrain.getRenderStates().setTileFactor(150);
+        a.terrain.getRenderStates().setBumpMapping(true);
+        a.terrain.getRenderStates().setBumpStyle(1);
+        a.terrain.setNormalMap(a.grassNormalTx);
+        a.terrain.getRenderStates().setNormalMapping(true);
+        a.terrain.getRenderStates().setTextureDetailBlend(true);
+        a.terrain.getRenderStates().setSurfaceScale(0.55f);
+        a.terrain.setDetailTextureImage(a.grassFarTx);
+        a.terrain.getRenderStates().castsShadow(false);
+        a.terrain.getRenderStates().receivesShadow(true);
     }
 
     private void buildSceneryProps() {
-        buildRockScenery(150);
-        buildTreeScenery(145);
+        buildRockScenery(280);
+        buildTreeScenery(300);
     }
 
     private void buildRockScenery(int count) {
@@ -127,12 +158,22 @@ public class MyGameWorldBuilder {
             if (index == 4) scale = randomRange(0.55f, 0.95f);
             else if (index >= 5) scale = randomRange(0.72f, 1.12f);
             else scale = randomRange(0.24f, 0.62f);
-            float clearance = index >= 4 ? 7.0f + scale * 5.0f : 2.8f + scale * 2.0f;
+            float clearance = index >= 4 ? 5.5f + scale * 3.2f : 2.3f + scale * 1.6f;
             Vector3f p = randomTerrainLocation(plantedLift(a.sceneryRockS[index], scale, 0.01f), 9.0f, clearance);
+            if (p == null) continue;
             rock.setLocalTranslation((new Matrix4f()).translation(p));
             rock.setLocalScale((new Matrix4f()).scaling(scale));
             rock.setLocalRotation((new Matrix4f()).rotationY(randomRadians()));
             rock.getRenderStates().hasLighting(true);
+            rock.getRenderStates().setBumpMapping(true);
+            rock.setNormalMap(a.rockNormalTx);
+            rock.getRenderStates().setNormalMapping(true);
+            rock.getRenderStates().setTextureMappingMode(1);
+            rock.getRenderStates().setTextureDetailBlend(true);
+            rock.getRenderStates().setSurfaceScale(0.85f);
+            rock.setDetailTextureImage(a.rockFarTx);
+            rock.getRenderStates().castsShadow(true);
+            rock.getRenderStates().receivesShadow(true);
             a.sceneryProps.add(rock);
             a.sceneryRocks.add(rock);
             a.terrainLiftOffsets.put(rock, p.y);
@@ -144,13 +185,21 @@ public class MyGameWorldBuilder {
         for (int i = 0; i < count; i++) {
             int index = worldRandom.nextInt(a.sceneryTreeS.length);
             GameObject tree = new GameObject(GameObject.root(), a.sceneryTreeS[index], a.sceneryTreeTx[index]);
-            float scale = index >= 10 ? randomRange(1.25f, 1.85f) : randomRange(0.85f, 1.25f);
-            float clearance = index >= 10 ? 7.5f + scale * 4.0f : 10.0f + scale * 7.0f;
+            float scale = index >= 10 ? randomRange(1.75f, 2.55f) : randomRange(1.25f, 1.85f);
+            float clearance = index >= 10 ? 6.2f + scale * 3.0f : 7.6f + scale * 4.0f;
             Vector3f p = randomTerrainLocation(plantedLift(a.sceneryTreeS[index], scale, 0.01f), 14.0f, clearance);
+            if (p == null) continue;
             tree.setLocalTranslation((new Matrix4f()).translation(p));
             tree.setLocalScale((new Matrix4f()).scaling(scale));
             tree.setLocalRotation((new Matrix4f()).rotationY(randomRadians()));
             tree.getRenderStates().hasLighting(true);
+            tree.setDetailTextureImage(a.leafFarTx);
+            tree.setNormalMap(a.leafNormalTx);
+            tree.getRenderStates().setTextureDetailBlend(true);
+            tree.getRenderStates().setNormalMapping(true);
+            tree.getRenderStates().setSurfaceScale(0.9f);
+            tree.getRenderStates().castsShadow(true);
+            tree.getRenderStates().receivesShadow(true);
             a.sceneryProps.add(tree);
             a.sceneryTrees.add(tree);
             a.terrainLiftOffsets.put(tree, p.y);
@@ -180,7 +229,7 @@ public class MyGameWorldBuilder {
             if (Math.abs(x) < 8.0f && Math.abs(z) < 10.0f) continue;
             if (!isScatterSpotOpen(x, z, clearanceRadius)) continue;
             reserveScatterSpot(x, z, clearanceRadius);
-            return new Vector3f(x, lift, z);
+            return new Vector3f(x, terrainHeight(x, z) + lift, z);
         }
         float relaxedClearance = clearanceRadius * 0.65f;
         for (int i = 0; i < 120; i++) {
@@ -190,12 +239,9 @@ public class MyGameWorldBuilder {
             if (Math.abs(x) < 8.0f && Math.abs(z) < 10.0f) continue;
             if (!isScatterSpotOpen(x, z, relaxedClearance)) continue;
             reserveScatterSpot(x, z, relaxedClearance);
-            return new Vector3f(x, lift, z);
+            return new Vector3f(x, terrainHeight(x, z) + lift, z);
         }
-        float x = randomRange(-WORLD_SCATTER_RADIUS, WORLD_SCATTER_RADIUS);
-        float z = randomRange(-WORLD_SCATTER_RADIUS, WORLD_SCATTER_RADIUS);
-        reserveScatterSpot(x, z, relaxedClearance);
-        return new Vector3f(x, lift, z);
+        return null;
     }
 
     private boolean isScatterSpotOpen(float x, float z, float radius) {
@@ -240,7 +286,75 @@ public class MyGameWorldBuilder {
 
     private float spawnY(float x, float z, boolean useTerrainHeight) {
         if (!useTerrainHeight || game.assets.terrain == null) return 0f;
-        return game.assets.terrain.getHeight(x, z);
+        return terrainHeight(x, z);
+    }
+
+    private float terrainHeight(float x, float z) {
+        if (game.assets.terrain == null || game.assets.heightMaptx == null) return 0f;
+        BufferedImage heightMap = loadCpuHeightMap(game.assets.heightMaptx);
+        if (heightMap == null) return 0f;
+
+        Matrix4f terrainScale = game.assets.terrain.getLocalScale();
+        float terrainWidth = Math.max(0.001f, terrainScale.m00());
+        float heightScale = terrainScale.m11();
+        float u = clamp01((x / terrainWidth + 1.0f) * 0.5f);
+        float v = clamp01(1.0f - (z / terrainWidth + 1.0f) * 0.5f);
+        return heightScale * sampleHeightMap(heightMap, u, v);
+    }
+
+    public float terrainHeightCpu(float x, float z) {
+        return terrainHeight(x, z);
+    }
+
+    private BufferedImage loadCpuHeightMap(TextureImage heightMap) {
+        String file = heightMap.getTextureFile();
+        if (file == null || file.isEmpty()) return null;
+        if (cachedHeightMapImage != null && file.equals(cachedHeightMapFile)) return cachedHeightMapImage;
+        try {
+            cachedHeightMapImage = ImageIO.read(new File(file));
+            cachedHeightMapFile = file;
+        } catch (Exception e) {
+            cachedHeightMapImage = null;
+            cachedHeightMapFile = null;
+        }
+        return cachedHeightMapImage;
+    }
+
+    private float sampleHeightMap(BufferedImage image, float u, float v) {
+        int maxX = image.getWidth() - 1;
+        int maxY = image.getHeight() - 1;
+        if (maxX <= 0 || maxY <= 0) return 0f;
+
+        float px = u * maxX;
+        float py = v * maxY;
+        int x0 = (int) Math.floor(px);
+        int y0 = (int) Math.floor(py);
+        int x1 = Math.min(maxX, x0 + 1);
+        int y1 = Math.min(maxY, y0 + 1);
+        float tx = px - x0;
+        float ty = py - y0;
+
+        float h00 = red(image.getRGB(x0, y0));
+        float h10 = red(image.getRGB(x1, y0));
+        float h01 = red(image.getRGB(x0, y1));
+        float h11 = red(image.getRGB(x1, y1));
+        float top = lerp(h00, h10, tx);
+        float bottom = lerp(h01, h11, tx);
+        return lerp(top, bottom, ty);
+    }
+
+    private float red(int argb) {
+        return ((argb >> 16) & 0xFF) / 255.0f;
+    }
+
+    private float lerp(float a, float b, float t) {
+        return a + (b - a) * t;
+    }
+
+    private float clamp01(float v) {
+        if (v < 0f) return 0f;
+        if (v > 1f) return 1f;
+        return v;
     }
 
     public void selectRoundHeightMap(UUID zombieId, long roundToken) {
@@ -252,6 +366,8 @@ public class MyGameWorldBuilder {
         a.activeHeightMapIndex = index;
         a.heightMaptx = a.heightMapTextures[index];
         a.terrain.setHeightMap(a.heightMaptx);
+        cachedHeightMapImage = null;
+        cachedHeightMapFile = null;
         game.physicsSystem.rebuildTerrainPhysics();
         game.itemSystem.requestEnvironmentReplant();
         game.hudSystem.showEvent("MAP " + (index + 1), 1.0);
@@ -290,6 +406,7 @@ public class MyGameWorldBuilder {
         game.assets.staticCoverBuilds.clear();
         for (int i = 0; i < GameConstants.RANDOM_HOUSE_COUNT; i++) {
             Vector3f base = randomTerrainBase(24.0f, 14.0f);
+            if (base == null) continue;
             buildHome(base, randomRadians());
         }
         buildRandomWallCover(GameConstants.RANDOM_WALL_COVER_COUNT);
@@ -298,6 +415,7 @@ public class MyGameWorldBuilder {
 
     private Vector3f randomTerrainBase(float minCenterDistance, float clearanceRadius) {
         Vector3f p = randomTerrainLocation(0f, minCenterDistance, clearanceRadius);
+        if (p == null) return null;
         p.y = 0f;
         return p;
     }
@@ -305,6 +423,7 @@ public class MyGameWorldBuilder {
     private void buildRandomWallCover(int count) {
         for (int i = 0; i < count; i++) {
             Vector3f base = randomTerrainBase(18.0f, 7.0f);
+            if (base == null) continue;
             float yaw = randomRadians();
             int pattern = worldRandom.nextInt(3);
             int material = randomBuildMaterial();
@@ -330,6 +449,7 @@ public class MyGameWorldBuilder {
     private void buildRandomRoofCover(int count) {
         for (int i = 0; i < count; i++) {
             Vector3f base = randomTerrainBase(18.0f, 7.0f);
+            if (base == null) continue;
             float yaw = randomRadians();
             int material = randomBuildMaterial();
             int pattern = worldRandom.nextInt(3);
@@ -479,12 +599,38 @@ public class MyGameWorldBuilder {
     private void styleCoverPiece(GameObject piece, int materialType, float glassOpacity) {
         piece.getRenderStates().hasLighting(true);
         piece.getRenderStates().setHasSolidColor(false);
+        piece.getRenderStates().setBumpMapping(false);
+        piece.getRenderStates().setNormalMapping(false);
+        piece.getRenderStates().isEnvironmentMapped(false);
+        piece.getRenderStates().castsShadow(true);
+        piece.getRenderStates().receivesShadow(true);
+        piece.getRenderStates().setTextureMappingMode(0);
+        piece.getRenderStates().setSurfaceScale(1.0f);
+        piece.getRenderStates().setTextureDetailBlend(true);
+        piece.setNormalMap(null);
         if (materialType == GameConstants.BUILD_MATERIAL_GLASS) {
             piece.getRenderStates().isTransparent(true);
             piece.getRenderStates().setOpacity(glassOpacity);
+            piece.getRenderStates().isEnvironmentMapped(true);
+            piece.getRenderStates().castsShadow(false);
+            piece.setDetailTextureImage(game.assets.glassFarTx);
+            piece.setNormalMap(game.assets.glassNormalTx);
+            piece.getRenderStates().setNormalMapping(true);
         } else {
             piece.getRenderStates().isTransparent(false);
             piece.getRenderStates().setOpacity(1.0f);
+            if (materialType == GameConstants.BUILD_MATERIAL_METAL) {
+                piece.getRenderStates().isEnvironmentMapped(true);
+                piece.getRenderStates().setSurfaceScale(0.8f);
+                piece.setDetailTextureImage(game.assets.metalFarTx);
+                piece.setNormalMap(game.assets.metalNormalTx);
+                piece.getRenderStates().setNormalMapping(true);
+            } else {
+                piece.setNormalMap(game.assets.woodNormalTx);
+                piece.setDetailTextureImage(game.assets.woodFarTx);
+                piece.getRenderStates().setNormalMapping(true);
+                piece.getRenderStates().setSurfaceScale(0.75f);
+            }
         }
     }
 
@@ -529,6 +675,7 @@ public class MyGameWorldBuilder {
         game.assets.buildPreview.setLocalScale((new Matrix4f()).scaling(game.state.buildWallHalfW, game.state.buildWallHalfH, 1f));
         game.assets.buildPreview.setLocalTranslation((new Matrix4f()).translation(0f, -1000f, 0f));
         game.assets.buildPreview.getRenderStates().hasLighting(true);
+        game.assets.buildPreview.getRenderStates().castsShadow(false);
     }
 
 }
