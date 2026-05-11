@@ -1,7 +1,7 @@
-package a3;
+package running_Dead;
 
 import org.joml.Vector3f;
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
 import com.jogamp.opengl.util.gl2.GLUT;
 import tage.HUDmanager;
 
