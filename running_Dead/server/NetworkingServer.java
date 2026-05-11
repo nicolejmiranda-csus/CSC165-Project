@@ -1,4 +1,4 @@
-package a3.server;
+package running_Dead.server;
 
 import java.io.IOException;
 
@@ -61,18 +61,18 @@ public class NetworkingServer {
 
 		if (discoveryResponder != null) {
 			System.out.println("Auto-discovery enabled on UDP port " + NetworkDiscovery.DEFAULT_DISCOVERY_PORT + ".");
-			System.out.println("Clients can now launch with: java a3.MyGame AUTO");
+			System.out.println("Clients can now launch with: java running_Dead.MyGame AUTO");
 		}
 
 		System.out.println("NetworkingServer relays packets only; it does not create a player avatar.");
-		System.out.println("For 2 players, keep this server running and launch two separate a3.MyGame clients.");
+		System.out.println("For 2 players, keep this server running and launch two separate running_Dead.MyGame clients.");
 	}
 
 	public static void main(String[] args) {
 		if (args.length > 1) {
 			new NetworkingServer(Integer.parseInt(args[0]), args[1]);
 		} else {
-			System.out.println("Usage: java a3.server.NetworkingServer <port> <UDP|TCP>");
+			System.out.println("Usage: java running_Dead.server.NetworkingServer <port> <UDP|TCP>");
 		}
 	}
 }
