@@ -1,6 +1,6 @@
-package a3.server;
+package running_Dead.server;
 
-import a3.GameConstants;
+import running_Dead.GameConstants;
 
 import java.util.ArrayList;
 import java.util.HashMap;
