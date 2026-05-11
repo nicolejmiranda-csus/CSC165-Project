@@ -72,6 +72,8 @@ public class GameObject
 
 	private ObjShape shape;
 	private TextureImage texture;
+	private TextureImage detailTexture;
+	private TextureImage normalMap;
 	private TextureImage heightMap = (TextureImage) new DefaultHeightMap();
 	private RenderStates renderStates = new RenderStates();
 	private GameObject parent;
@@ -197,6 +199,18 @@ public class GameObject
 
 	/** assigns a TextureImage to this GameObject */
 	public void setTextureImage(TextureImage tex) { texture = tex; }
+
+	/** returns the far/detail TextureImage associated with this GameObject, if any */
+	public TextureImage getDetailTextureImage() { return detailTexture; }
+
+	/** assigns a far/detail TextureImage to blend with the primary texture by distance */
+	public void setDetailTextureImage(TextureImage tex) { detailTexture = tex; }
+
+	/** returns the normal-map TextureImage associated with this GameObject, if any */
+	public TextureImage getNormalMap() { return normalMap; }
+
+	/** assigns a normal-map TextureImage to this GameObject */
+	public void setNormalMap(TextureImage tex) { normalMap = tex; }
 
 	/** returns a reference to the TextureImage height map associated with this GameObject - applicable to terrain planes */
 	public TextureImage getHeightMap() { return heightMap; }
