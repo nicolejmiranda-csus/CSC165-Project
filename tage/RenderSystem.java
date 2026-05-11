@@ -46,22 +46,49 @@ public class RenderSystem extends JFrame implements GLEventListener {
 
 	private int renderingProgram, skyboxProgram, lineProgram;
 	private int heightProgram, skelProgram;
-	private int screenFlashProgram;
+	private int shadowProgram, shadowSkeletalProgram;
+	private int screenFlashProgram, cloudProgram;
 	private int[] vao = new int[1];
 	private int[] vbo = new int[3];
+	private int[] shadowFramebuffer = new int[1];
+	private int[] shadowTexture = new int[1];
+	private int[] shadowSkinSSBO = new int[1];
 	private int[] screenFlashVao = new int[1];
 	private int[] screenFlashVbo = new int[1];
 
 	private int defaultSkyBox;
+	private static final int SHADOW_MAP_SIZE = 2048;
+	private static final float SHADOW_ORTHO_HALF_EXTENT = 230.0f;
+	private static final float SHADOW_LIGHT_DISTANCE = 260.0f;
+	private static final float SHADOW_NEAR_PLANE = 1.0f;
+	private static final float SHADOW_FAR_PLANE = 650.0f;
+	private final float[] fogColor = { 0.10f, 0.13f, 0.16f, 1.0f };
+	private float fogStart = 120.0f;
+	private float fogEnd = 330.0f;
+	private float textureDetailNear = 55.0f;
+	private float textureDetailFar = 300.0f;
+	private float shadowStrength = 0.62f;
+	private int shadowLightIndex = 0;
+	private boolean shadowMapReady = false;
 
 	// allocate variables for display() function
+	private FloatBuffer vals = Buffers.newDirectFloatBuffer(16);
+	private FloatBuffer shadowSkinVals = Buffers.newDirectFloatBuffer(AnimatedShape.MAX_SKIN_BONES * 16);
 	private Matrix4f pMat = new Matrix4f(); // perspective matrix
 	private Matrix4f vMat = new Matrix4f(); // view matrix
+	private Matrix4f shadowLightVMat = new Matrix4f();
+	private Matrix4f shadowLightPMat = new Matrix4f();
+	private Matrix4f shadowLightVPMat = new Matrix4f();
+	private Matrix4f shadowModelMat = new Matrix4f();
+	private Vector3f shadowLightPos = new Vector3f();
+	private Vector3f shadowTarget = new Vector3f(0.0f, 0.0f, 0.0f);
+	private Vector3f shadowUp = new Vector3f(0.0f, 1.0f, 0.0f);
 	private int xLoc, zLoc;
 	private float aspect;
 	private int defaultTexture;
 	private String defaultTitle = "default title", title;
 	private int screenSizeX, screenSizeY;
+	private long cloudStartMillis = System.currentTimeMillis();
 
 	private ArrayList<TextureImage> textures = new ArrayList<TextureImage>();
 	private ArrayList<ObjShape> shapes = new ArrayList<ObjShape>();
@@ -223,6 +250,13 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		canvasWidth = myCanvas.getWidth();
 		canvasHeight = myCanvas.getHeight();
 
+		rq = new RenderQueue((engine.getSceneGraph()).getRoot());
+		Vector<GameObject> q = rq.createStandardQueue();
+		if (engine.willRenderGraphicsObjects()) {
+			updateShadowMatrices();
+			renderShadowMap(q);
+		}
+
 		for (Viewport vp : viewportList.values()) {
 			if (!vp.isEnabled())
 				continue;
@@ -237,10 +271,8 @@ public class RenderSystem extends JFrame implements GLEventListener {
 
 			if ((engine.getSceneGraph()).isSkyboxEnabled()) {
 				objectRendererSkyBox.render((engine.getSceneGraph()).getSkyBoxObject(), skyboxProgram, pMat, vMat);
+				drawCloudLayer(gl);
 			}
-
-			rq = new RenderQueue((engine.getSceneGraph()).getRoot());
-			Vector<GameObject> q = rq.createStandardQueue();
 
 			// render the graphics objects unless this has been disabled
 			if (engine.willRenderGraphicsObjects()) {
@@ -320,6 +352,25 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		gl.glEnable(GL_DEPTH_TEST);
 	}
 
+	private void drawCloudLayer(GL4 gl) {
+		if (cloudProgram == 0 || screenFlashVao[0] == 0) return;
+		float time = (System.currentTimeMillis() - cloudStartMillis) / 1000.0f;
+		gl.glUseProgram(cloudProgram);
+		int timeLoc = gl.glGetUniformLocation(cloudProgram, "timeSeconds");
+		int nightLoc = gl.glGetUniformLocation(cloudProgram, "nightFactor");
+		gl.glUniform1f(timeLoc, time);
+		gl.glUniform1f(nightLoc, Math.max(0.0f, Math.min(1.0f, engine.getGame().getCloudNightFactor())));
+
+		gl.glDisable(GL_DEPTH_TEST);
+		gl.glEnable(GL_BLEND);
+		gl.glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+		gl.glBindVertexArray(screenFlashVao[0]);
+		gl.glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+		gl.glBindVertexArray(0);
+		gl.glDisable(GL_BLEND);
+		gl.glEnable(GL_DEPTH_TEST);
+	}
+
 	private void constructViewport(Viewport vp) {
 		GL4 gl = (GL4) GLContext.getCurrentGL();
 
@@ -386,8 +437,17 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		skelProgram = Utils.createShaderProgram("assets/shaders/skeletalVert.glsl",
 				"assets/shaders/StandardFrag.glsl");
 
+		shadowProgram = Utils.createShaderProgram("assets/shaders/ShadowVert.glsl",
+				"assets/shaders/ShadowFrag.glsl");
+
+		shadowSkeletalProgram = Utils.createShaderProgram("assets/shaders/ShadowSkeletalVert.glsl",
+				"assets/shaders/ShadowFrag.glsl");
+
 		screenFlashProgram = Utils.createShaderProgram("assets/shaders/ScreenFlashVert.glsl",
 				"assets/shaders/ScreenFlashFrag.glsl");
+
+		cloudProgram = Utils.createShaderProgram("assets/shaders/ScreenFlashVert.glsl",
+				"assets/shaders/CloudFrag.glsl");
 
 		objectRendererStandard = new RenderObjectStandard(engine);
 		objectRendererSkyBox = new RenderObjectSkyBox(engine);
@@ -400,6 +460,7 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		System.out.println("loading skyboxes");
 		defaultTexture = Utils.loadTexture("assets/defaultAssets/checkerboardSmall.JPG");
 		defaultSkyBox = Utils.loadCubeMap("assets/defaultAssets/lakeIslands");
+		setupShadowMap();
 
 		loadTexturesIntoOpenGL();
 		(engine.getGame()).loadSkyBoxes();
@@ -428,6 +489,70 @@ public class RenderSystem extends JFrame implements GLEventListener {
 	/** for engine use only. */
 	public int getDefaultTexture() {
 		return defaultTexture;
+	}
+
+	/** for engine use only. */
+	public Matrix4f getLightVPMatrix() {
+		return shadowLightVPMat;
+	}
+
+	/** for engine use only. */
+	public int getShadowTexture() {
+		return shadowTexture[0];
+	}
+
+	/** for engine use only. */
+	public boolean hasShadowMap() {
+		return shadowMapReady;
+	}
+
+	/** for engine use only. */
+	public int getShadowLightIndex() {
+		return shadowLightIndex;
+	}
+
+	/** for engine use only. */
+	public float getShadowStrength() {
+		return shadowStrength;
+	}
+
+	/** for engine use only. */
+	public float[] getFogColor() {
+		return fogColor;
+	}
+
+	/** for engine use only. */
+	public float getFogStart() {
+		return fogStart;
+	}
+
+	/** for engine use only. */
+	public float getFogEnd() {
+		return fogEnd;
+	}
+
+	/** sets renderer distance fog color */
+	public void setFogColor(float r, float g, float b, float a) {
+		fogColor[0] = r;
+		fogColor[1] = g;
+		fogColor[2] = b;
+		fogColor[3] = a;
+	}
+
+	/** sets renderer distance fog start/end distances */
+	public void setFogRange(float start, float end) {
+		fogStart = Math.max(0.0f, start);
+		fogEnd = Math.max(fogStart + 1.0f, end);
+	}
+
+	/** for engine use only. */
+	public float getTextureDetailNear() {
+		return textureDetailNear;
+	}
+
+	/** for engine use only. */
+	public float getTextureDetailFar() {
+		return textureDetailFar;
 	}
 
 	// ----------------------- SHAPES SECTION ----------------------
@@ -505,6 +630,207 @@ public class RenderSystem extends JFrame implements GLEventListener {
 		gl.glVertexAttribPointer(0, 2, GL_FLOAT, false, 0, 0);
 		gl.glEnableVertexAttribArray(0);
 		gl.glBindVertexArray(0);
+	}
+
+	private void setupShadowMap() {
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+
+		gl.glGenTextures(1, shadowTexture, 0);
+		gl.glBindTexture(GL_TEXTURE_2D, shadowTexture[0]);
+		gl.glTexImage2D(GL_TEXTURE_2D, 0, GL_DEPTH_COMPONENT32, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE, 0,
+				GL_DEPTH_COMPONENT, GL_FLOAT, null);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_BORDER);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_MODE, GL_COMPARE_REF_TO_TEXTURE);
+		gl.glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_COMPARE_FUNC, GL_LEQUAL);
+		float[] borderColor = { 1.0f, 1.0f, 1.0f, 1.0f };
+		gl.glTexParameterfv(GL_TEXTURE_2D, GL_TEXTURE_BORDER_COLOR, borderColor, 0);
+
+		gl.glGenFramebuffers(1, shadowFramebuffer, 0);
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer[0]);
+		gl.glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D, shadowTexture[0], 0);
+		gl.glDrawBuffer(GL_NONE);
+		gl.glReadBuffer(GL_NONE);
+		shadowMapReady = gl.glCheckFramebufferStatus(GL_FRAMEBUFFER) == GL_FRAMEBUFFER_COMPLETE;
+		if (!shadowMapReady)
+			System.out.println("shadow framebuffer is incomplete");
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+	}
+
+	private void updateShadowMatrices() {
+		LightManager lm = engine.getLightManager();
+		if (lm.getNumLights() == 0 || shadowFramebuffer[0] == 0 || shadowTexture[0] == 0) {
+			shadowMapReady = false;
+			return;
+		}
+
+		Light shadowLight = null;
+		for (int i = 0; i < lm.getNumLights(); i++) {
+			Light light = lm.getLight(i);
+			if (light.isEnabled()) {
+				shadowLight = light;
+				shadowLightIndex = i;
+				break;
+			}
+		}
+		if (shadowLight == null) {
+			shadowMapReady = false;
+			return;
+		}
+
+		shadowMapReady = true;
+		Vector3f lightSource = shadowLight.getLocationVector();
+		Vector3f lightDirection = new Vector3f(lightSource);
+		if (lightDirection.lengthSquared() < 0.0001f)
+			lightDirection.set(0.45f, 0.85f, 0.35f);
+		lightDirection.normalize();
+		shadowTarget.set(getShadowFocusPoint());
+		shadowTarget.y = 0.0f;
+		shadowLightPos.set(shadowTarget).add(lightDirection.mul(SHADOW_LIGHT_DISTANCE));
+
+		Vector3f lightDir = new Vector3f(shadowTarget).sub(shadowLightPos).normalize();
+		if (Math.abs(lightDir.dot(0.0f, 1.0f, 0.0f)) > 0.95f)
+			shadowUp.set(0.0f, 0.0f, 1.0f);
+		else
+			shadowUp.set(0.0f, 1.0f, 0.0f);
+
+		shadowLightVMat.identity().lookAt(shadowLightPos, shadowTarget, shadowUp);
+		shadowLightPMat.identity().ortho(-SHADOW_ORTHO_HALF_EXTENT, SHADOW_ORTHO_HALF_EXTENT,
+				-SHADOW_ORTHO_HALF_EXTENT, SHADOW_ORTHO_HALF_EXTENT,
+				SHADOW_NEAR_PLANE, SHADOW_FAR_PLANE);
+		shadowLightVPMat.set(shadowLightPMat).mul(shadowLightVMat);
+	}
+
+	private Vector3f getShadowFocusPoint() {
+		Viewport mainViewport = viewportList.get("MAIN");
+		if (mainViewport != null && mainViewport.isEnabled())
+			return mainViewport.getCamera().getLocation();
+		for (Viewport vp : viewportList.values()) {
+			if (vp != null && vp.isEnabled())
+				return vp.getCamera().getLocation();
+		}
+		return new Vector3f(0.0f, 0.0f, 0.0f);
+	}
+
+	private void renderShadowMap(Vector<GameObject> queue) {
+		if (!shadowMapReady || queue == null)
+			return;
+
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, shadowFramebuffer[0]);
+		gl.glDrawBuffer(GL_NONE);
+		gl.glReadBuffer(GL_NONE);
+		gl.glViewport(0, 0, SHADOW_MAP_SIZE, SHADOW_MAP_SIZE);
+		gl.glClear(GL_DEPTH_BUFFER_BIT);
+		gl.glColorMask(false, false, false, false);
+		gl.glEnable(GL_DEPTH_TEST);
+		gl.glDepthFunc(GL_LEQUAL);
+		gl.glDisable(GL_BLEND);
+		gl.glDisable(GL_CULL_FACE);
+		gl.glEnable(GL_POLYGON_OFFSET_FILL);
+		gl.glPolygonOffset(1.5f, 3.0f);
+
+		for (int i = 0; i < queue.size(); i++) {
+			GameObject go = queue.get(i);
+			if (go == null || go.getShape() == null)
+				continue;
+			if (!go.getRenderStates().renderingEnabled() || !go.getRenderStates().castsShadow())
+				continue;
+			if (go.getRenderStates().isTransparent())
+				continue;
+			if (go.getShape().getPrimitiveType() < 3)
+				continue;
+			renderShadowObject(go);
+		}
+
+		gl.glDisable(GL_POLYGON_OFFSET_FILL);
+		gl.glColorMask(true, true, true, true);
+		gl.glBindFramebuffer(GL_FRAMEBUFFER, 0);
+		gl.glDrawBuffer(GL_BACK);
+		gl.glReadBuffer(GL_BACK);
+		gl.glViewport(0, 0, canvasWidth, canvasHeight);
+	}
+
+	private void renderShadowObject(GameObject go) {
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		boolean animated = go.getShape() instanceof AnimatedShape;
+		int program = animated ? shadowSkeletalProgram : shadowProgram;
+		gl.glUseProgram(program);
+
+		shadowModelMat.identity();
+		shadowModelMat.mul(go.getWorldTranslation());
+		shadowModelMat.mul(go.getWorldRotation());
+		shadowModelMat.mul(go.getRenderStates().getModelOrientationCorrection());
+		shadowModelMat.mul(go.getWorldScale());
+
+		int mLoc = gl.glGetUniformLocation(program, "m_matrix");
+		int lightVPLoc = gl.glGetUniformLocation(program, "lightVP_matrix");
+		gl.glUniformMatrix4fv(mLoc, 1, false, shadowModelMat.get(vals));
+		gl.glUniformMatrix4fv(lightVPLoc, 1, false, shadowLightVPMat.get(vals));
+
+		gl.glBindBuffer(GL_ARRAY_BUFFER, go.getShape().getVertexBuffer());
+		gl.glVertexAttribPointer(0, 3, GL_FLOAT, false, 0, 0);
+		gl.glEnableVertexAttribArray(0);
+
+		if (animated) {
+			uploadShadowSkinMatrices((AnimatedShape) go.getShape());
+			gl.glBindBuffer(GL_ARRAY_BUFFER, go.getShape().getBoneIndicesBuffer());
+			gl.glVertexAttribPointer(3, 3, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(3);
+
+			gl.glBindBuffer(GL_ARRAY_BUFFER, go.getShape().getBoneWeightBuffer());
+			gl.glVertexAttribPointer(4, 3, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(4);
+		} else {
+			int heightMapped = go.isTerrain() ? 1 : 0;
+			int hLoc = gl.glGetUniformLocation(program, "heightMapped");
+			int heightTexLoc = gl.glGetUniformLocation(program, "height");
+			gl.glUniform1i(hLoc, heightMapped);
+			gl.glUniform1i(heightTexLoc, 2);
+			gl.glBindBuffer(GL_ARRAY_BUFFER, go.getShape().getTexCoordBuffer());
+			gl.glVertexAttribPointer(1, 2, GL_FLOAT, false, 0, 0);
+			gl.glEnableVertexAttribArray(1);
+			gl.glActiveTexture(GL_TEXTURE2);
+			gl.glBindTexture(GL_TEXTURE_2D, go.getHeightMap().getTexture());
+		}
+
+		if (go.getShape().isWindingOrderCCW())
+			gl.glFrontFace(GL_CCW);
+		else
+			gl.glFrontFace(GL_CW);
+
+		gl.glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+		gl.glDrawArrays(GL_TRIANGLES, 0, go.getShape().getNumVertices());
+	}
+
+	private void uploadShadowSkinMatrices(AnimatedShape shape) {
+		GL4 gl = (GL4) GLContext.getCurrentGL();
+		tage.rml.Matrix4[] skinMats = shape.getPoseSkinMatrices();
+		int boneCount = shape.getBoneCount();
+		int uploadCount = java.lang.Math.min(boneCount, AnimatedShape.MAX_SKIN_BONES);
+		uploadCount = java.lang.Math.min(uploadCount, skinMats.length);
+
+		if (shadowSkinSSBO[0] == 0)
+			gl.glGenBuffers(1, shadowSkinSSBO, 0);
+
+		shadowSkinVals.clear();
+		for (int i = 0; i < uploadCount; i++)
+			shadowSkinVals.put(skinMats[i].toFloatArray());
+		if (uploadCount == 0)
+			shadowSkinVals.put(new float[] {
+					1.0f, 0.0f, 0.0f, 0.0f,
+					0.0f, 1.0f, 0.0f, 0.0f,
+					0.0f, 0.0f, 1.0f, 0.0f,
+					0.0f, 0.0f, 0.0f, 1.0f
+			});
+		shadowSkinVals.flip();
+
+		gl.glBindBuffer(GL_SHADER_STORAGE_BUFFER, shadowSkinSSBO[0]);
+		gl.glBufferData(GL_SHADER_STORAGE_BUFFER, shadowSkinVals.limit() * 4, shadowSkinVals, GL_DYNAMIC_DRAW);
+		gl.glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, shadowSkinSSBO[0]);
+		gl.glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
 	}
 
 	// ------------------ TEXTURE SECTION ---------------------
