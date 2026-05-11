@@ -1,4 +1,4 @@
-package a3;
+package running_Dead;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -6,7 +6,8 @@ import java.util.UUID;
 
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
-import a3.networking.GhostAvatar;
+import running_Dead.networking.GhostAvatar;
+import tage.Camera;
 import tage.GameObject;
 
 public class MyGameItemSystem {
@@ -155,6 +156,7 @@ public class MyGameItemSystem {
         }
         game.state.flashlightOn = !game.state.flashlightOn;
         updateFlashlightSpotlight();
+        game.networking.sendPlayerTransform();
         game.soundSystem.playFlashlightClick();
         game.hudSystem.showEvent(game.state.flashlightOn ? "FLASHLIGHT ON" : "FLASHLIGHT OFF", 0.7);
     }
@@ -189,7 +191,7 @@ public class MyGameItemSystem {
         if (!canGrantFlashlightFromPickup()) return false;
         GameObject flashlight = new GameObject(GameObject.root(), game.assets.flashlightS, game.assets.flashlightTx);
         flashlight.setLocalScale((new Matrix4f()).scaling(getFlashlightCarryScale()));
-        flashlight.getRenderStates().hasLighting(true);
+        styleFlashlightRender(flashlight);
         game.assets.flashlight = flashlight;
         game.state.hasFlashlight = true;
         game.state.flashlightOn = false;
@@ -198,6 +200,17 @@ public class MyGameItemSystem {
         updateEquippedItemVisibility();
         game.hudSystem.showEvent("FLASHLIGHT PICKED UP", 1.0);
         return true;
+    }
+
+    private void styleFlashlightRender(GameObject flashlight) {
+        if (flashlight == null) return;
+        flashlight.getRenderStates().hasLighting(true);
+        flashlight.getRenderStates().isEnvironmentMapped(false);
+        flashlight.getRenderStates().setHasSolidColor(true);
+        flashlight.getRenderStates().setColor(new Vector3f(0.018f, 0.017f, 0.015f));
+        flashlight.getRenderStates().setTextureDetailBlend(false);
+        flashlight.getRenderStates().setNormalMapping(false);
+        flashlight.getRenderStates().castsShadow(true);
     }
 
     public boolean grantPotionFromPickup() {
@@ -298,9 +311,9 @@ public class MyGameItemSystem {
         if (!sceneryPlaced) {
             for (tage.GameObject prop : game.assets.sceneryProps) {
                 if (prop == null) continue;
+                if (game.assets.sceneryTrees.contains(prop)) continue;
                 Vector3f p = prop.getWorldLocation();
-                float clearance = game.assets.sceneryTrees.contains(prop) ? -treeTerrainSink : 0.03f;
-                prop.setLocalTranslation((new Matrix4f()).translation(p.x, terrainPlantedY(prop, clearance), p.z));
+                prop.setLocalTranslation((new Matrix4f()).translation(p.x, terrainCenterPlantedY(prop, 0.03f), p.z));
             }
             sceneryPlaced = true;
         }
@@ -373,6 +386,12 @@ public class MyGameItemSystem {
         return plantedY;
     }
 
+    private float terrainCenterPlantedY(tage.GameObject object, float clearance) {
+        if (object == null) return clearance;
+        Vector3f p = object.getWorldLocation();
+        return game.assets.terrain.getHeight(p.x, p.z) + meshBottomLift(object, clearance);
+    }
+
     private void updateCarriedFlashlightPose() {
         if (game.assets.flashlight == null || !game.state.hasFlashlight) return;
         if (game.assets.flashlight.getParent() != game.assets.avatar) {
@@ -433,9 +452,7 @@ public class MyGameItemSystem {
             return;
         }
         Vector3f forward = new Vector3f(game.avatarForward());
-        forward.y = 0f;
-        if (forward.lengthSquared() < 0.0001f) forward.set(0f, 0f, -1f);
-        forward.normalize();
+        forward.set(getFlashlightBeamDirection());
         Vector3f lightPos = new Vector3f(game.assets.flashlight.getWorldLocation())
                 .add(new Vector3f(forward).mul(game.state.flashlightBeamForwardOffset))
                 .add(0f, game.state.flashlightBeamLift, 0f);
@@ -528,10 +545,18 @@ public class MyGameItemSystem {
     }
 
     private Vector3f getFlashlightBeamDirection() {
-        Vector3f forward = new Vector3f(game.avatarForward());
-        forward.y = 0f;
-        if (forward.lengthSquared() < 0.0001f) forward.set(0f, 0f, -1f);
-        return forward.normalize();
+        if (!game.state.fullMapMode) {
+            Camera cam = MyGame.getEngine().getRenderSystem().getViewport("MAIN").getCamera();
+            if (cam != null) {
+                Vector3f camForward = new Vector3f(cam.getN());
+                if (camForward.lengthSquared() > 0.0001f) {
+                    return camForward.normalize();
+                }
+            }
+        }
+        Vector3f avatarForward = new Vector3f(game.avatarForward());
+        if (avatarForward.lengthSquared() < 0.0001f) avatarForward.set(0f, 0f, -1f);
+        return avatarForward.normalize();
     }
 
     private boolean isPointInFlashlightBeam(Vector3f origin, Vector3f forward, Vector3f point) {
@@ -565,6 +590,7 @@ public class MyGameItemSystem {
             else game.assets.heldBabyZombie.getRenderStates().disableRendering();
         }
         updateFlashlightSpotlight();
+        game.networking.sendPlayerTransform();
     }
 
     private void tryPickupFlashlight() {
@@ -612,6 +638,13 @@ public class MyGameItemSystem {
         GameObject rock = new GameObject(GameObject.root(), game.assets.rock2S, game.assets.rockTx);
         rock.setLocalScale((new Matrix4f()).scaling(getRockCarryScale()));
         rock.getRenderStates().hasLighting(true);
+        rock.getRenderStates().setBumpMapping(true);
+        rock.setNormalMap(game.assets.rockNormalTx);
+        rock.getRenderStates().setNormalMapping(true);
+        rock.getRenderStates().setTextureMappingMode(1);
+        rock.getRenderStates().setTextureDetailBlend(true);
+        rock.getRenderStates().setSurfaceScale(0.9f);
+        rock.setDetailTextureImage(game.assets.rockFarTx);
         game.assets.heldRock = rock;
     }
 
@@ -620,6 +653,8 @@ public class MyGameItemSystem {
         GameObject baby = new GameObject(GameObject.root(), game.assets.babyZombieS, game.assets.babyZombieTx);
         baby.setLocalScale((new Matrix4f()).scaling(getBabyZombieCarryScale()));
         baby.getRenderStates().hasLighting(true);
+        baby.setDetailTextureImage(game.assets.babyZombieFarTx);
+        baby.getRenderStates().setTextureDetailBlend(true);
         game.assets.heldBabyZombie = baby;
     }
 
