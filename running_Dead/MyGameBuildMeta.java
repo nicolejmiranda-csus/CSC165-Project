@@ -2,6 +2,11 @@ package running_Dead;
 
 import org.joml.Vector3f;
 
+/**
+ * Saved placement metadata for one build piece.
+ * The server and clients need this data to rebuild, damage, and remove the same wall or roof cell.
+ * Connected to: Created by MyGameBuildSystem and mirrored through ProtocolClient/server build messages.
+ */
 class MyGameBuildMeta {
     final String key;
     final int pieceType;

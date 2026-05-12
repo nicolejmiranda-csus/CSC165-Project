@@ -12,6 +12,8 @@ import org.joml.*;
 * for a Camera instance by modifying location, U, V, and N based on user input.
 * The default camera position is at (0,0,1) looking down the -Z axis towards the origin.
 * @author Scott Gordon
+* @author Givin Yang
+* @author Nicole Joshua Espinoza
 */
 
 public class Camera
@@ -79,6 +81,7 @@ public class Camera
 		v = (new Vector3f(copyU.cross(n))).normalize();
 	}
 
+	/** rotates this Camera around its V (upward-facing) axis by the specified radians */
 	public void yaw(float radians)
 	{
 		//rotate U and N about V
@@ -90,6 +93,7 @@ public class Camera
 		v.set(u.cross(n, new Vector3f())).normalize();   // v = u cross product n
 	}
 
+	/** rotates this Camera around its U (right-facing) axis by the specified radians */
 	public void pitch(float radians)
 	{
 		//rotate V and N about U

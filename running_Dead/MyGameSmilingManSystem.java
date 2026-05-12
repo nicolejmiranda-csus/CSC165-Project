@@ -13,6 +13,11 @@ import org.joml.Vector3f;
 import running_Dead.networking.GhostAvatar;
 import tage.shapes.AnimatedShape;
 
+/**
+ * Runs Smiling Man spawning, sight checks, noise reaction, chasing, and attacks.
+ * This is separate from Mushroom Mon because its rules depend on whether humans look at it.
+ * Connected to: Owned by MyGame; built by MyGameWorldBuilder and updated by MyGameUpdater.
+ */
 public class MyGameSmilingManSystem {
     private static final String ANIM_IDLE = "smilingManIdle";
     private static final String ANIM_WALK = "smilingManWalkForward";

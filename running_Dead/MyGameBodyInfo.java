@@ -2,6 +2,11 @@ package running_Dead;
 
 import java.util.UUID;
 
+/**
+ * Physics metadata attached to a TAGE GameObject.
+ * This lets collision handling distinguish trees, rocks, builds, enemies, and projectiles.
+ * Connected to: Created and read by MyGamePhysicsSystem when a Bullet body maps back to gameplay.
+ */
 class MyGameBodyInfo {
     final MyGameBodyKind kind;
     UUID remoteId;

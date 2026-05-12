@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Input wrapper for consuming the equipped potion.
+ * Connected to: Created by MyGameInputBinder; forwards item input to MyGameItemSystem through MyGame.
+ */
 public class UsePotionAction extends AbstractInputAction {
     private MyGame game;
 

@@ -2,6 +2,12 @@ package running_Dead;
 
 import tage.shapes.AnimatedShape;
 
+/**
+ * Isolates animation switching from the rest of the gameplay code.
+ * Local and remote avatars can use different imported shapes, so every animation call
+ * first checks whether the current model actually supports clips.
+ * Connected to: Owned by MyGame; updated by movement/updater code and remote animation packets.
+ */
 public class MyGameAnimationSystem {
     private static final String IDLE_ANIM = "IDLE";
     private static final String WALK_ANIM = "WALK";

@@ -22,6 +22,9 @@ import org.joml.Vector3f;
  * orbitCam.setAzimuthDeg(180.0f); // start behind avatar
  * orbitCam.update();
  * </pre>
+ *
+ * @author Givin Yang
+ * @author Nicole Joshua Espinoza
  */
 public class CameraOrbit3D
 {

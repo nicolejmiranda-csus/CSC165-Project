@@ -2,6 +2,11 @@ package running_Dead;
 
 import org.joml.Vector3f;
 
+/**
+ * Estimates scenery bounds from imported model vertices.
+ * The computed base offset is why trees and rocks can snap visually to the terrain instead of floating or sinking.
+ * Connected to: Called by MyGameWorldBuilder when placing imported scenery meshes.
+ */
 class MyGameSceneryBoundsBuilder {
     float minX = Float.MAX_VALUE, minY = Float.MAX_VALUE, minZ = Float.MAX_VALUE;
     float maxX = -Float.MAX_VALUE, maxY = -Float.MAX_VALUE, maxZ = -Float.MAX_VALUE;

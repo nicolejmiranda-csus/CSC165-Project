@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 import tage.GameObject;
 import tage.physics.PhysicsObject;
 
+/**
+ * Rendered scenery object plus its collision footprint.
+ * Physics registration uses this record to create matching tree/rock colliders after OpenGL initialization.
+ * Connected to: Created by MyGameWorldBuilder and later registered by MyGamePhysicsSystem.
+ */
 class MyGameSceneryRecord {
     final GameObject object;
     final PhysicsObject body;

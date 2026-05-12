@@ -13,6 +13,11 @@ import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Authoritative shared match state stored by the server.
+ * This keeps roles, timers, pickups, builds, names, and health synchronized for every client.
+ * Connected to: Owned by GameServerUDP/GameServerTCP; sends state through ServerMessenger.
+ */
 class ServerGameState {
     private static final int[] PICKUP_TYPES = GameConstants.ZOMBIE_TAG_PICKUP_TYPES;
     private static final long PICKUP_RESPAWN_MS = 30000L;
@@ -65,6 +70,7 @@ class ServerGameState {
         animationStates.putIfAbsent(playerId, "IDLE");
         invisibleStates.putIfAbsent(playerId, false);
 
+        // A joining client receives the authoritative snapshot so it does not depend on old packets it missed.
         sendSnapshotTo(playerId);
         startCountdownIfReady();
     }

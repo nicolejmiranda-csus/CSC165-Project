@@ -8,6 +8,11 @@ import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
 
+/**
+ * UDP version of the Running_Dead relay server.
+ * This is the normal multiplayer path because the clients send frequent movement and item-state updates.
+ * Connected to: Created by NetworkingServer for UDP mode; delegates authoritative state to ServerGameState.
+ */
 public class GameServerUDP extends GameConnectionServer<UUID> {
 	private final ServerGameState gameState;
 
@@ -92,7 +97,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					String createAvatarType = messageTokens[2];
 					String[] createPos = { messageTokens[3], messageTokens[4], messageTokens[5] };
 					String createYaw = messageTokens[6];
-					sendCreateMessages(createClientId, createAvatarType, createPos, createYaw);
+					String createName = messageTokens.length >= 8 ? messageTokens[7] : "Player";
+					sendCreateMessages(createClientId, createAvatarType, createPos, createYaw, createName);
 					sendWantsDetailsMessages(createClientId);
 					return;
 
@@ -104,7 +110,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					String detailsAvatarType = messageTokens[3];
 					String[] detailsPos = { messageTokens[4], messageTokens[5], messageTokens[6] };
 					String detailsYaw = messageTokens[7];
-					sendDetailsForMessage(detailsClientId, detailsRemoteId, detailsAvatarType, detailsPos, detailsYaw);
+					String detailsName = messageTokens.length >= 9 ? messageTokens[8] : "Player";
+					sendDetailsForMessage(detailsClientId, detailsRemoteId, detailsAvatarType, detailsPos, detailsYaw, detailsName);
 					return;
 
 				case "move":
@@ -115,7 +122,10 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 					String moveYaw = messageTokens[5];
 					String equippedItem = messageTokens.length >= 7 ? messageTokens[6] : "0";
 					String flashlightOn = messageTokens.length >= 8 ? messageTokens[7] : "0";
-					sendMoveMessages(moveClientId, movePos, moveYaw, equippedItem, flashlightOn);
+					String[] flashlightDir = messageTokens.length >= 11
+							? new String[] { messageTokens[8], messageTokens[9], messageTokens[10] }
+							: new String[] { "0", "0", "-1" };
+					sendMoveMessages(moveClientId, movePos, moveYaw, equippedItem, flashlightOn, flashlightDir);
 					return;
 
 				case "build":
@@ -283,8 +293,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 		}
 	}
 
-	// Message Format: (create,remoteId,avatarType,x,y,z,yaw)
-	public void sendCreateMessages(UUID clientID, String avatarType, String[] position, String yaw) {
+	// Message Format: (create,remoteId,avatarType,x,y,z,yaw,playerName)
+	public void sendCreateMessages(UUID clientID, String avatarType, String[] position, String yaw, String playerName) {
 		try {
 			String message = "create," + clientID.toString();
 			message += "," + avatarType;
@@ -292,6 +302,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			message += "," + playerName;
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
@@ -299,8 +310,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 		}
 	}
 
-	// Message Format: (dsfr,clientId,avatarType,x,y,z,yaw)
-	public void sendDetailsForMessage(UUID clientID, UUID remoteId, String avatarType, String[] position, String yaw) {
+	// Message Format: (dsfr,clientId,avatarType,x,y,z,yaw,playerName)
+	public void sendDetailsForMessage(UUID clientID, UUID remoteId, String avatarType, String[] position, String yaw, String playerName) {
 		try {
 			String message = "dsfr," + clientID.toString();
 			message += "," + avatarType;
@@ -308,6 +319,7 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			message += "," + playerName;
 			logDirectPacket(message, remoteId);
 			sendPacket(message, remoteId);
 		} catch (IOException e) {
@@ -326,8 +338,8 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 		}
 	}
 
-	// Message Format: (move,remoteId,x,y,z,yaw,equippedItem,flashlightOn)
-	public void sendMoveMessages(UUID clientID, String[] position, String yaw, String equippedItem, String flashlightOn) {
+	// Message Format: (move,remoteId,x,y,z,yaw,equippedItem,flashlightOn,flashDirX,flashDirY,flashDirZ)
+	public void sendMoveMessages(UUID clientID, String[] position, String yaw, String equippedItem, String flashlightOn, String[] flashlightDir) {
 		try {
 			String message = "move," + clientID.toString();
 			message += "," + position[0];
@@ -336,6 +348,9 @@ public class GameServerUDP extends GameConnectionServer<UUID> {
 			message += "," + yaw;
 			message += "," + equippedItem;
 			message += "," + flashlightOn;
+			message += "," + flashlightDir[0];
+			message += "," + flashlightDir[1];
+			message += "," + flashlightDir[2];
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {

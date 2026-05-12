@@ -3,6 +3,11 @@ package running_Dead;
 import org.joml.Vector3f;
 import tage.*;
 
+/**
+ * Controls synchronized day/night lighting, sun values, fog, local-only human night light, and flashlights.
+ * Personal night light is intentionally local-only, while flashlight spotlights are networked for all clients.
+ * Connected to: Called by MyGame.initializeLights and MyGameUpdater; also configures flashlights for GhostManager.
+ */
 public class MyGameLighting {
     private final MyGame game;
     private static final float SUN_RADIUS = 145.0f;
@@ -37,15 +42,7 @@ public class MyGameLighting {
         MyGame.getEngine().getSceneGraph().addLight(a.playerNightLight);
 
         a.flashlightSpotlight = new Light();
-        a.flashlightSpotlight.setType(Light.LightType.SPOTLIGHT);
-        a.flashlightSpotlight.setAmbient(0.01f, 0.01f, 0.008f);
-        a.flashlightSpotlight.setDiffuse(2.80f, 2.55f, 1.85f);
-        a.flashlightSpotlight.setSpecular(2.20f, 2.05f, 1.65f);
-        a.flashlightSpotlight.setCutoffAngle(30.0f);
-        a.flashlightSpotlight.setOffAxisExponent(4.0f);
-        a.flashlightSpotlight.setConstantAttenuation(0.45f);
-        a.flashlightSpotlight.setLinearAttenuation(0.018f);
-        a.flashlightSpotlight.setQuadraticAttenuation(0.0035f);
+        configureFlashlightSpotlight(a.flashlightSpotlight);
         a.flashlightSpotlight.setLocation(new Vector3f(0f, -100f, 0f));
         a.flashlightSpotlight.setDirection(new Vector3f(0f, 0f, -1f));
         a.flashlightSpotlight.disable();
@@ -53,11 +50,25 @@ public class MyGameLighting {
         updateDayNight(0.0f);
     }
 
+    public static void configureFlashlightSpotlight(Light light) {
+        if (light == null) return;
+        light.setType(Light.LightType.SPOTLIGHT);
+        light.setAmbient(0.01f, 0.01f, 0.008f);
+        light.setDiffuse(2.80f, 2.55f, 1.85f);
+        light.setSpecular(2.20f, 2.05f, 1.65f);
+        light.setCutoffAngle(30.0f);
+        light.setOffAxisExponent(4.0f);
+        light.setConstantAttenuation(0.45f);
+        light.setLinearAttenuation(0.018f);
+        light.setQuadraticAttenuation(0.0035f);
+    }
+
     public void updateDayNight(float dt) {
         if (!game.state.dayNightEnabled || game.assets.sunLight == null) return;
 
         float cycle = Math.max(1.0f, game.state.dayNightCycleSeconds);
         if (game.state.dayNightServerSynced && game.state.dayNightRoundEndEpochMs > 0L) {
+            // Multiplayer clients derive cycle time from the server's round token/end time so everyone sees the same sky.
             float roundSeconds = Math.max(cycle, (float) game.state.survivalRoundDuration);
             float secondsRemaining = Math.max(0.0f, (game.state.dayNightRoundEndEpochMs - System.currentTimeMillis()) / 1000.0f);
             float elapsed = clamp(roundSeconds - secondsRemaining, 0.0f, roundSeconds);
@@ -105,6 +116,7 @@ public class MyGameLighting {
             return;
         }
 
+        // This light is intentionally not sent over the network; it is only a small local visibility assist for humans.
         Vector3f pos = new Vector3f(game.assets.avatar.getWorldLocation()).add(0f, PLAYER_NIGHT_LIGHT_LIFT, 0f);
         game.assets.playerNightLight.setLocation(pos);
         game.assets.playerNightLight.setAmbient(0.018f, 0.016f, 0.012f);

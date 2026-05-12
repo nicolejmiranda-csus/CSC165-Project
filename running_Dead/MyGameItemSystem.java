@@ -10,6 +10,11 @@ import running_Dead.networking.GhostAvatar;
 import tage.Camera;
 import tage.GameObject;
 
+/**
+ * Manages held items, pickups, flashlight battery/blinding, and zombie baby projectiles.
+ * It also updates network-visible held-item props so other clients can see what a player is carrying.
+ * Connected to: Owned by MyGame; called by equip/use actions, updater, networking, GhostManager, and physics.
+ */
 public class MyGameItemSystem {
     private final MyGame game;
     private float collectibleBobTime = 0.0f;
@@ -557,6 +562,10 @@ public class MyGameItemSystem {
         Vector3f avatarForward = new Vector3f(game.avatarForward());
         if (avatarForward.lengthSquared() < 0.0001f) avatarForward.set(0f, 0f, -1f);
         return avatarForward.normalize();
+    }
+
+    public Vector3f getFlashlightBeamDirectionForNetwork() {
+        return getFlashlightBeamDirection();
     }
 
     private boolean isPointInFlashlightBeam(Vector3f origin, Vector3f forward, Vector3f point) {

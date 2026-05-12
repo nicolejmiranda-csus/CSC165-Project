@@ -1,5 +1,10 @@
 package running_Dead;
 
+/**
+ * Gameplay categories for physics bodies.
+ * The physics system uses these values instead of relying on object names or model filenames.
+ * Connected to: Used by MyGamePhysicsSystem and collision handlers to classify physics bodies.
+ */
 enum MyGameBodyKind {
     LOCAL_PLAYER,
     REMOTE_PLAYER,

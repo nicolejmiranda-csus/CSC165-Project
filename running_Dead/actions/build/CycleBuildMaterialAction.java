@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import net.java.games.input.Event;
 import tage.input.action.AbstractInputAction;
 
+/**
+ * Input wrapper for cycling wood, metal, and glass build materials.
+ * Connected to: Created by MyGameInputBinder; forwards build input to MyGameBuildSystem through MyGame.
+ */
 public class CycleBuildMaterialAction extends AbstractInputAction {
     private final MyGame game;
 

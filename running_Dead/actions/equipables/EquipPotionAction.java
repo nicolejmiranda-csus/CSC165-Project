@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Input wrapper for equipping the healing potion.
+ * Connected to: Created by MyGameInputBinder; forwards item input to MyGameItemSystem through MyGame.
+ */
 public class EquipPotionAction extends AbstractInputAction {
     private MyGame game;
 

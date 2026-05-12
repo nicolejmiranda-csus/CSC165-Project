@@ -296,7 +296,7 @@ void calcPositionalLight()
 
 void calcSpotLight()
 {
-	float cosAngle = clamp(abs(dot(-L, normalize((light.direction).xyz))), 0.0, 1.0);
+	float cosAngle = clamp(dot(-L, normalize((light.direction).xyz)), 0.0, 1.0);
 	float angleD = degrees(acos(cosAngle));
 
 	if (angleD > light.cutoffAngle)

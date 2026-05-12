@@ -14,6 +14,11 @@ import tage.audio.IAudioManager;
 import tage.audio.Sound;
 import tage.audio.SoundType;
 
+/**
+ * Loads and updates all positional and HUD sound effects.
+ * Gameplay systems request sounds here instead of needing to know JOAL setup details.
+ * Connected to: Owned by MyGame; called by item, build, AI, networking lobby, and updater code.
+ */
 public class MyGameSoundSystem {
     private static final String SOUND_FLASHLIGHT = "flashlight";
     private static final String SOUND_EQUIP = "equip";
@@ -48,6 +53,7 @@ public class MyGameSoundSystem {
     private AudioResource mushroomMonChaseResource;
     private AudioResource mushroomMonSmokeHissResource;
     private AudioResource mushroomMonPoofResource;
+    private AudioResource lobbyJoinResource;
 
     private MyGameMushroomMonSoundSet mushroomMonSounds;
     private MyGamePlayerSoundSet localPlayerSounds;
@@ -59,6 +65,7 @@ public class MyGameSoundSystem {
     private Sound scaryLaughSound;
     private Sound potionHealSound;
     private Sound woodPlaceSound;
+    private Sound lobbyJoinSound;
 
     public MyGameSoundSystem(MyGame game) {
         this.game = game;
@@ -89,6 +96,7 @@ public class MyGameSoundSystem {
             mushroomMonChaseResource = resource("mono_mushroom-chase.wav");
             mushroomMonSmokeHissResource = resource("mono_mushroom-smoke-hiss.wav");
             mushroomMonPoofResource = resource("mono_mushroom-poof.wav");
+            lobbyJoinResource = resource("sound_garage-cat-meow-8-fx-306184.wav");
 
             localPlayerSounds = createPlayerSoundSet();
             pickupSound = oneShot(pickupResource, 75, 2f, 45f, 1.6f);
@@ -99,6 +107,7 @@ public class MyGameSoundSystem {
             scaryLaughSound = oneShot(scaryLaughResource, 88, 3f, 95f, 1.0f);
             potionHealSound = oneShot(potionResource, 78, 1f, 40f, 1.3f);
             woodPlaceSound = oneShot(woodResource, 82, 2f, 55f, 1.2f);
+            lobbyJoinSound = oneShot(lobbyJoinResource, 86, 1f, 80f, 0f);
             loaded = true;
         } catch (RuntimeException e) {
             loaded = false;
@@ -170,6 +179,10 @@ public class MyGameSoundSystem {
 
     public void playBuildPlace(Vector3f location) {
         playAt(woodPlaceSound, location);
+    }
+
+    public void playLobbyJoin() {
+        playAt(lobbyJoinSound, localSoundLocation());
     }
 
     public void updateSmilingManLoop(int index, Vector3f location, boolean walking, boolean running) {

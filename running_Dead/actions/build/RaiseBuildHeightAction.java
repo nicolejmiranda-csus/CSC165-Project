@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Input wrapper for raising the build preview above the terrain.
+ * Connected to: Created by MyGameInputBinder; forwards build input to MyGameBuildSystem through MyGame.
+ */
 public class RaiseBuildHeightAction extends AbstractInputAction {
     private MyGame game;
 

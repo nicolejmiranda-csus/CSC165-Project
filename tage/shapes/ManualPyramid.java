@@ -9,6 +9,9 @@ import org.joml.*;
  *
  * <p>Uses indexed source vertices but expands to a triangle-list stream using {@code set*Indexed()},
  * following the same pattern as {@link ManualQuad}.</p>
+ *
+ * @author Givin Yang
+ * @author Nicole Joshua Espinoza
  */
 public class ManualPyramid extends ManualObject
 {

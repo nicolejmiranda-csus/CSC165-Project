@@ -10,6 +10,11 @@ import org.joml.Vector3f;
 
 import running_Dead.networking.GhostAvatar;
 
+/**
+ * Runs Mushroom Mon spawning, chasing, and explosion damage.
+ * The enemies are hidden until activated so the scene can contain several threats without visible clutter.
+ * Connected to: Owned by MyGame; built by MyGameWorldBuilder and updated by MyGameUpdater.
+ */
 public class MyGameMushroomMonSystem {
     public static final int TOTAL_COUNT = 6; // 1 random-spawn + 5 static-spawn
 

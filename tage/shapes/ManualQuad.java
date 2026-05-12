@@ -9,6 +9,9 @@ import org.joml.*;
  * <p>The quad is centered at the origin in the XY plane and faces the +Z direction. Vertex data
  * is provided as indexed arrays (positions, texture coordinates, and normals), then expanded into
  * a 6-vertex triangle list via the index order.</p>
+ *
+ * @author Givin Yang
+ * @author Nicole Joshua Espinoza
  */
 public class ManualQuad extends ManualObject
 {

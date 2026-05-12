@@ -1,5 +1,11 @@
 package running_Dead;
 
+/**
+ * Shared gameplay tuning values for Running_Dead.
+ * Keeping these constants in one file makes it clear which numbers are design choices
+ * instead of hidden magic values scattered across movement, AI, building, and networking.
+ * Connected to: Read by almost every gameplay system; keeps shared tuning out of individual systems.
+ */
 public final class GameConstants {
     private GameConstants() {}
 
@@ -28,6 +34,7 @@ public final class GameConstants {
     public static final float ZOMBIE_TRACKER_INTERVAL_SECONDS = 30.0f;
     public static final float WORLD_TERRAIN_SIZE = 380.0f;
     public static final float WORLD_EDGE_LIMIT = 184.0f;
+    public static final float NAME_LABEL_MAX_DISTANCE = WORLD_TERRAIN_SIZE * 0.15f;
     public static final float FLASHLIGHT_BLIND_RANGE = 22.0f;
     public static final float FLASHLIGHT_BLIND_DOT = 0.90f;
     public static final float FLASHLIGHT_BLIND_SECONDS = 1.0f;

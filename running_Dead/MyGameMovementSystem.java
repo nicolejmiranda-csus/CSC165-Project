@@ -2,6 +2,11 @@ package running_Dead;
 
 import org.joml.Vector3f;
 
+/**
+ * Applies local movement, terrain following, dash state, jumping, and collision recovery.
+ * Movement is centralized so physics, networking, camera, and animation all read the same final position.
+ * Connected to: Owned by MyGame; called by movement actions, physics recovery, camera, animation, and networking.
+ */
 public class MyGameMovementSystem {
     private final MyGame game;
     private float frameMoveInput = 0.0f;

@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Keyboard input wrapper for panning the overhead map camera.
+ * Connected to: Created by MyGameInputBinder; forwards camera input to MyGameCameraSystem through MyGame.
+ */
 public class OverPanAction extends AbstractInputAction {
     private MyGame game;
     private float dirX;
