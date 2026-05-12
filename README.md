@@ -1,3 +1,147 @@
+## New: What I Changed On `givin-javadocs-and-fixes`
+
+### Package Rename
+
+I renamed the game package from `a3` to `running_Dead` because that is the current name of the game.
+
+* Moved the main game files into `running_Dead`.
+* Moved the actions, networking, and server code into `running_Dead`.
+* Updated scripts to run `running_Dead.MyGame`.
+* Removed the old `original_tage` folder.
+
+### Graphics And Shader Upgrades
+
+I added the CSC155-style graphics work into the CSC165 game.
+
+* Added shadow mapping.
+* Added normal mapping.
+* Added detail/far texture blending.
+* Added fog.
+* Added cloud rendering.
+* Added reflection/environment controls.
+* Fixed the flashlight spotlight direction in the shader.
+* Updated `StandardFrag.glsl`.
+
+### Shadow And Lighting Fixes
+
+I fixed the bad hard shadow and reflection issues around the player.
+
+* Reduced fake shadow artifacts.
+* Stopped terrain from casting bad self-shadows.
+* Made player and NPC shadows behave better.
+* Kept the build preview from casting shadows.
+* Improved material settings so objects are not overly shiny.
+
+### Day And Night Cycle
+
+I added a synchronized day/night cycle.
+
+* Day lasts 150 seconds.
+* Night lasts 150 seconds.
+* Each round starts at a randomized point in the cycle.
+* Clients sync the same day/night timing from the server.
+* Day uses the day cubemap.
+* Night uses the night cubemap.
+* Humans get a small local-only night light.
+* Zombies get better night vision.
+
+### Flashlight Improvements
+
+I improved flashlight gameplay and multiplayer visibility.
+
+* Flashlight aims with the camera/player direction.
+* All clients can see other players’ flashlight spotlights.
+* The private human night glow is not networked.
+* Fixed the issue where remote clients saw the cone/spotlight from the wrong direction.
+* Flashlight state is sent through movement packets.
+
+### Floating Player Names
+
+I added floating names above players.
+
+* Humans only see human player names.
+* Zombies only see zombie player names.
+* Names are distance-limited to about 15% of the map.
+* Names no longer show through trees, rocks, walls, or objects.
+* Names use depth-buffer checks in TAGE.
+* Human names disappear when hiding under tables.
+
+### Multiplayer And Lobby Updates
+
+I improved multiplayer startup and syncing.
+
+* Added player name input before joining.
+* Player names cannot be empty.
+* Join messages show names like `Bob has joined the lobby`.
+* Join sound plays when a client joins.
+* Synced held items between clients.
+* Synced zombie baby/flashlight item visibility.
+* Improved server state snapshots for late-joining clients.
+
+### World And Terrain Fixes
+
+I fixed random object placement and terrain snapping.
+
+* Trees and rocks now use terrain height.
+* Objects use model base offsets so they do not float or sink as much.
+* Random scenery avoids overlapping other scenery.
+* Added more trees and rocks.
+* Made trees taller.
+* Added CPU terrain-height sampling so placement does not require an OpenGL context.
+
+### Build System Fixes
+
+I fixed build mode placement and visuals.
+
+* Build preview follows the player’s current terrain height.
+* Build placement avoids OpenGL height errors on mouse click.
+* Build pieces use wood, metal, and glass materials.
+* Build pieces sync across clients.
+* Build pieces can be damaged and removed.
+* Support checks stop floating unsupported structures.
+
+### Physics And Stuck Recovery
+
+I improved collider behavior.
+
+* Added scenery, build, and pickup physics registration.
+* Added recovery when the player gets stuck in a collider.
+* The player gets nudged out instead of staying trapped.
+* Improved tree and scenery collider handling.
+
+### TAGE Engine Updates
+
+I updated TAGE to support the new game features.
+
+* Added world-positioned HUD labels.
+* Added depth-tested name label rendering.
+* Updated HUD rendering so normal HUD stays visible while world labels respect depth.
+* Added camera orbit, yaw, and pitch support.
+* Added network discovery helper docs.
+* Updated manual shapes and bobbing controller author/comment information.
+
+### Comments And Documentation
+
+I added grader-facing comments throughout the project.
+
+* Every Java file in `running_Dead` has a purpose comment.
+* Every file also has a `Connected to:` comment explaining where it is used.
+* Important non-obvious systems have extra comments explaining why the code exists.
+* Regenerated the TAGE Javadoc folder.
+* Added TAGE Javadocs for our TAGE changes.
+
+### Run Script And Native Path Fixes
+
+I cleaned up the batch files.
+
+* Removed the temporary `PATH` workaround from `.bat` files.
+* Added `MyGameNativePathSanitizer` instead.
+* The sanitizer fixes the broken Muse Hub / VS Code native path issue inside Java startup.
+* Updated `run_client.bat`.
+* Updated `run_server.bat`.
+* Updated `run_singleplayer.bat`.
+
+
 ## New: What I Changed On `givin-glsl-shaders`
 
 ### Package Rename
