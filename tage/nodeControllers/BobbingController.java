@@ -15,6 +15,9 @@ import java.util.HashMap;
  * <p>The controller caches each target's initial local translation (its base position) the first time it is
  * applied, then continuously offsets the local Y component around that base. Multiple targets are supported by
  * tracking base position, time, and a phase offset per GameObject.</p>
+ *
+ * @author Givin Yang
+ * @author Nicole Joshua Espinoza
  */
 public class BobbingController extends NodeController
 {

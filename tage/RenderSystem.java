@@ -257,6 +257,10 @@ public class RenderSystem extends JFrame implements GLEventListener {
 			renderShadowMap(q);
 		}
 
+		Matrix4f hudVMat = null;
+		Matrix4f hudPMat = null;
+		Viewport hudViewport = null;
+		Viewport mainViewport = viewportList.get("MAIN");
 		for (Viewport vp : viewportList.values()) {
 			if (!vp.isEnabled())
 				continue;
@@ -268,6 +272,11 @@ public class RenderSystem extends JFrame implements GLEventListener {
 			pMat.setPerspective((float) Math.toRadians(fov), aspect, nearClip, farClip);
 
 			constructViewport(vp);
+			if (hudViewport == null || vp == mainViewport) {
+				hudVMat = new Matrix4f(vMat);
+				hudPMat = new Matrix4f(pMat);
+				hudViewport = vp;
+			}
 
 			if ((engine.getSceneGraph()).isSkyboxEnabled()) {
 				objectRendererSkyBox.render((engine.getSceneGraph()).getSkyBoxObject(), skyboxProgram, pMat, vMat);
@@ -324,8 +333,7 @@ public class RenderSystem extends JFrame implements GLEventListener {
 			}
 		}
 
-		gl.glClear(GL_DEPTH_BUFFER_BIT);
-		(engine.getHUDmanager()).drawHUDs();
+		(engine.getHUDmanager()).drawHUDs(hudVMat, hudPMat, hudViewport, canvasWidth, canvasHeight);
 		drawScreenFlashOverlay(gl, engine.getGame().getScreenFlashOpacity());
 	}
 
