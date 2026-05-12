@@ -5,6 +5,11 @@ import java.util.UUID;
 import running_Dead.networking.GhostAvatar;
 import tage.RenderStates;
 
+/**
+ * Handles render-only visuals such as axes, cloud motion, and helper objects.
+ * These effects are kept away from gameplay systems so they do not affect collision or networking.
+ * Connected to: Owned by MyGame; called by initializer/updater for axes, clouds, and render-only helpers.
+ */
 public class MyGameVisualSystem {
     private final MyGame game;
 

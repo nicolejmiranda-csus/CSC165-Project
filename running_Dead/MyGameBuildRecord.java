@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 import tage.GameObject;
 import tage.physics.PhysicsObject;
 
+/**
+ * Network-friendly record of a placed build piece.
+ * It stores the grid position and material so late-joining clients can recreate existing builds.
+ * Connected to: Stored in MyGameState and sent by the server so late clients recreate placed builds.
+ */
 class MyGameBuildRecord {
     final String key;
     final GameObject object;

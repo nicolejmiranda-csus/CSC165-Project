@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Keyboard input wrapper for raising or lowering the third-person camera angle.
+ * Connected to: Created by MyGameInputBinder; forwards camera input to MyGameCameraSystem through MyGame.
+ */
 public class ElevateAction extends AbstractInputAction {
     private MyGame game;
     private float dir;

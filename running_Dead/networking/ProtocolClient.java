@@ -2,6 +2,9 @@ package running_Dead.networking;
 
 import java.io.IOException;
 import java.net.InetAddress;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.UUID;
 
 import org.joml.Vector3f;
@@ -11,6 +14,11 @@ import running_Dead.MyGame;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.client.GameConnectionClient;
 
+/**
+ * Client packet translator for Running_Dead.
+ * It converts compact comma-separated network messages into game-system calls and sends local state to the server.
+ * Connected to: Created by MyGameNetworkingSystem; talks to GameServerUDP/GameServerTCP and calls MyGame systems.
+ */
 public class ProtocolClient extends GameConnectionClient {
 	private final MyGame game;
 	private final GhostManager ghostManager;
@@ -72,7 +80,8 @@ public class ProtocolClient extends GameConnectionClient {
 					System.out.println("join success confirmed");
 					game.setIsConnected(true);
 					sendCreateMessage(game.getSelectedAvatarType(), game.getPlayerPosition(), game.getPlayerYaw());
-					}
+					game.announceLocalPlayerJoined();
+				}
 				if (messageTokens[1].compareTo("failure") == 0) {
 					System.out.println("join failure confirmed");
 					game.setIsConnected(false);
@@ -92,8 +101,8 @@ public class ProtocolClient extends GameConnectionClient {
 			}
 
 			// Handle CREATE and DETAILS_FOR messages from the server.
-			// Formats: (create,remoteId,avatarType,x,y,z,yaw)
-			// and      (dsfr,remoteId,avatarType,x,y,z,yaw)
+			// Formats: (create,remoteId,avatarType,x,y,z,yaw[,playerName])
+			// and      (dsfr,remoteId,avatarType,x,y,z,yaw[,playerName])
 			if (messageTokens[0].compareTo("create") == 0 || (messageTokens[0].compareTo("dsfr") == 0)) {
 				if (messageTokens.length < 7) {
 					System.out.println("bad create/dsfr packet: " + strMessage);
@@ -102,6 +111,7 @@ public class ProtocolClient extends GameConnectionClient {
 
 				UUID ghostID = UUID.fromString(messageTokens[1]);
 				String avatarType = messageTokens[2];
+				String playerName = messageTokens.length >= 8 ? decodePlayerName(messageTokens[7]) : "Player";
 
 				// Parse out the position into a Vector3f
 				Vector3f ghostPosition = new Vector3f(
@@ -112,7 +122,12 @@ public class ProtocolClient extends GameConnectionClient {
 				float ghostYaw = Float.parseFloat(messageTokens[6]);
 
 				try {
-					ghostManager.createGhostAvatar(ghostID, avatarType, ghostPosition, ghostYaw);
+					boolean alreadyKnown = ghostManager.getGhostAvatar(ghostID) != null;
+					ghostManager.createGhostAvatar(ghostID, avatarType, playerName, ghostPosition, ghostYaw);
+					game.applyRemotePlayerName(ghostID, playerName);
+					if (messageTokens[0].compareTo("create") == 0 && !alreadyKnown) {
+						game.announceRemotePlayerJoined(ghostID, playerName);
+					}
 				} catch (IOException e) {
 					System.out.println("error creating ghost avatar");
 				}
@@ -128,12 +143,12 @@ public class ProtocolClient extends GameConnectionClient {
 				// Send the local client's avatar's information
 				// Parse out the id into a UUID
 				UUID ghostID = UUID.fromString(messageTokens[1]);
-				sendDetailsForMessage(ghostID, game.getSelectedAvatarType(), game.getPlayerPosition(),
-						game.getPlayerYaw());
+				sendDetailsForMessage(ghostID, game.getSelectedAvatarType(), game.getPlayerName(),
+						game.getPlayerPosition(), game.getPlayerYaw());
 			}
 
 			// Handle MOVE message.
-			// Format: (move,remoteId,x,y,z,yaw[,equippedItem,flashlightOn])
+			// Format: (move,remoteId,x,y,z,yaw[,equippedItem,flashlightOn,flashDirX,flashDirY,flashDirZ])
 			if (messageTokens[0].compareTo("move") == 0) {
 				if (messageTokens.length < 6) {
 					System.out.println("bad move packet: " + strMessage);
@@ -155,7 +170,14 @@ public class ProtocolClient extends GameConnectionClient {
 				if (messageTokens.length >= 8) {
 					int equippedItem = Integer.parseInt(messageTokens[6]);
 					boolean flashlightOn = Integer.parseInt(messageTokens[7]) != 0;
-					ghostManager.updateGhostHeldItem(ghostID, equippedItem, flashlightOn);
+					Vector3f flashlightDirection = null;
+					if (messageTokens.length >= 11) {
+						flashlightDirection = new Vector3f(
+								Float.parseFloat(messageTokens[8]),
+								Float.parseFloat(messageTokens[9]),
+								Float.parseFloat(messageTokens[10]));
+					}
+					ghostManager.updateGhostHeldItem(ghostID, equippedItem, flashlightOn, flashlightDirection);
 				}
 			}
 
@@ -445,16 +467,18 @@ public class ProtocolClient extends GameConnectionClient {
 	// Informs the server of the clients Avatars position. The server
 	// takes this message and forwards it to all other clients registered
 	// with the server.
-	// Message Format: (create,localId,avatarType,x,y,z,yaw)
+	// Message Format: (create,localId,avatarType,x,y,z,yaw,playerName)
 
 	public void sendCreateMessage(String avatarType, Vector3f position, float yaw) {
 		try {
+			// Player name is sent with creation so both lobby messages and floating labels survive late joins.
 			String message = "create," + id.toString();
 			message += "," + avatarType;
 			message += "," + position.x();
 			message += "," + position.y();
 			message += "," + position.z();
 			message += "," + yaw;
+			message += "," + encodePlayerName(game.getPlayerName());
 
 			sendLoggedPacket(message);
 		} catch (IOException e) {
@@ -466,15 +490,16 @@ public class ProtocolClient extends GameConnectionClient {
 	// forwards this message to the client with the ID value matching remoteId.
 	// This message is generated in response to receiving a WANTS_DETAILS message
 	// from the server.
-	// Message Format: (dsfr,localId,remoteId,avatarType,x,y,z,yaw)
+	// Message Format: (dsfr,localId,remoteId,avatarType,x,y,z,yaw,playerName)
 
-	public void sendDetailsForMessage(UUID remoteId, String avatarType, Vector3f position, float yaw) {
+	public void sendDetailsForMessage(UUID remoteId, String avatarType, String playerName, Vector3f position, float yaw) {
 		try {
 			String message = "dsfr," + id.toString() + "," + remoteId.toString() + "," + avatarType;
 			message += "," + position.x();
 			message += "," + position.y();
 			message += "," + position.z();
 			message += "," + yaw;
+			message += "," + encodePlayerName(playerName);
 
 			sendLoggedPacket(message);
 		} catch (IOException e) {
@@ -483,10 +508,11 @@ public class ProtocolClient extends GameConnectionClient {
 	}
 
 	// Informs the server that the local avatar has changed position.
-	// Message Format: (move,localId,x,y,z,yaw,equippedItem,flashlightOn)
+	// Message Format: (move,localId,x,y,z,yaw,equippedItem,flashlightOn,flashDirX,flashDirY,flashDirZ)
 
-	public void sendMoveMessage(Vector3f position, float yaw, int equippedItem, boolean flashlightOn) {
+	public void sendMoveMessage(Vector3f position, float yaw, int equippedItem, boolean flashlightOn, Vector3f flashlightDirection) {
 		try {
+			// Movement packets double as lightweight item-state packets so held flashlights/baby zombies stay in sync.
 			String message = "move," + id.toString();
 			message += "," + position.x();
 			message += "," + position.y();
@@ -494,10 +520,29 @@ public class ProtocolClient extends GameConnectionClient {
 			message += "," + yaw;
 			message += "," + equippedItem;
 			message += "," + (flashlightOn ? 1 : 0);
+			Vector3f dir = flashlightDirection == null ? new Vector3f(0f, 0f, -1f) : new Vector3f(flashlightDirection);
+			if (dir.lengthSquared() < 0.0001f) dir.set(0f, 0f, -1f);
+			dir.normalize();
+			message += "," + dir.x();
+			message += "," + dir.y();
+			message += "," + dir.z();
 
 			sendLoggedPacket(message);
 		} catch (IOException e) {
 			e.printStackTrace();
+		}
+	}
+
+	private String encodePlayerName(String name) {
+		String value = name == null ? "Player" : name;
+		return URLEncoder.encode(value, StandardCharsets.UTF_8);
+	}
+
+	private String decodePlayerName(String name) {
+		try {
+			return URLDecoder.decode(name == null ? "Player" : name, StandardCharsets.UTF_8);
+		} catch (IllegalArgumentException e) {
+			return "Player";
 		}
 	}
 

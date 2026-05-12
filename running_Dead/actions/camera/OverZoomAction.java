@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Keyboard input wrapper for zooming the overhead map camera.
+ * Connected to: Created by MyGameInputBinder; forwards camera input to MyGameCameraSystem through MyGame.
+ */
 public class OverZoomAction extends AbstractInputAction {
     private MyGame game;
     private float dir;

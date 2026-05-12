@@ -11,6 +11,11 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import tage.*;
 
+/**
+ * Builds terrain, scenery, cover, enemies, avatar, axes, and the build preview.
+ * Random scenery uses deterministic seeds plus scatter spots so clients get a dense world without overlaps.
+ * Connected to: Called by MyGame.buildObjects; creates objects later used by physics, AI, items, HUD, and lighting.
+ */
 public class MyGameWorldBuilder {
     private final MyGame game;
     private final Random worldRandom = new Random(1652026L);
@@ -222,6 +227,8 @@ public class MyGameWorldBuilder {
     }
 
     private Vector3f randomTerrainLocation(float lift, float minCenterDistance, float clearanceRadius) {
+        // Random scenery is placed using terrain height plus the model's base lift so the visible mesh sits on the ground.
+        // Each accepted spot is reserved to keep big props from spawning inside one another.
         for (int i = 0; i < 220; i++) {
             float x = randomRange(-WORLD_SCATTER_RADIUS, WORLD_SCATTER_RADIUS);
             float z = randomRange(-WORLD_SCATTER_RADIUS, WORLD_SCATTER_RADIUS);
@@ -231,6 +238,7 @@ public class MyGameWorldBuilder {
             reserveScatterSpot(x, z, clearanceRadius);
             return new Vector3f(x, terrainHeight(x, z) + lift, z);
         }
+        // If the dense forest/rocks fill too much of the map, try again with smaller spacing rather than giving up early.
         float relaxedClearance = clearanceRadius * 0.65f;
         for (int i = 0; i < 120; i++) {
             float x = randomRange(-WORLD_SCATTER_RADIUS, WORLD_SCATTER_RADIUS);
@@ -294,6 +302,7 @@ public class MyGameWorldBuilder {
         BufferedImage heightMap = loadCpuHeightMap(game.assets.heightMaptx);
         if (heightMap == null) return 0f;
 
+        // This mirrors TerrainPlane's height-map sampling on the CPU for code that runs before or outside OpenGL display.
         Matrix4f terrainScale = game.assets.terrain.getLocalScale();
         float terrainWidth = Math.max(0.001f, terrainScale.m00());
         float heightScale = terrainScale.m11();

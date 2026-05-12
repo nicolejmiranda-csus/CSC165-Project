@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Gamepad-axis input wrapper for forward/backward movement.
+ * Connected to: Created by MyGameInputBinder; forwards movement input to MyGameMovementSystem through MyGame.
+ */
 public class MoveAxisAction extends AbstractInputAction {
     private MyGame game;
     private float deadzone = 0.20f;

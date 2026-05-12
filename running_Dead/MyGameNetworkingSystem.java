@@ -8,6 +8,11 @@ import java.net.UnknownHostException;
 import running_Dead.networking.ProtocolClient;
 import tage.networking.NetworkDiscovery;
 
+/**
+ * Client-side networking coordinator.
+ * It resolves auto-discovery, creates ProtocolClient, sends transform/item state, and closes cleanly on exit.
+ * Connected to: Owned by MyGame; creates ProtocolClient and is called by MyGameInitializer/MyGameUpdater.
+ */
 public class MyGameNetworkingSystem {
     private final MyGame game;
 
@@ -39,8 +44,10 @@ public class MyGameNetworkingSystem {
 
     public void sendPlayerTransform() {
         if (game.state.protClient != null && game.state.isClientConnected) {
+            // Movement packets also carry held item and flashlight direction so other clients see the same equipment.
+            org.joml.Vector3f flashlightDirection = game.itemSystem.getFlashlightBeamDirectionForNetwork();
             game.state.protClient.sendMoveMessage(game.assets.avatar.getWorldLocation(), game.state.playerYaw,
-                    game.state.equippedItem, game.state.flashlightOn);
+                    game.state.equippedItem, game.state.flashlightOn, flashlightDirection);
         }
     }
 

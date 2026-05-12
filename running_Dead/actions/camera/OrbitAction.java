@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Input wrapper for orbiting the third-person camera around the player.
+ * Connected to: Created by MyGameInputBinder; forwards camera input to MyGameCameraSystem through MyGame.
+ */
 public class OrbitAction extends AbstractInputAction {
     private MyGame game;
     private float dir;

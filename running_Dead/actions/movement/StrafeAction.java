@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Keyboard input wrapper for left/right strafing.
+ * Connected to: Created by MyGameInputBinder; forwards movement input to MyGameMovementSystem through MyGame.
+ */
 public class StrafeAction extends AbstractInputAction {
     private MyGame game;
     private float dir;

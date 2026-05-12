@@ -9,6 +9,11 @@ import org.joml.Vector3f;
 import tage.GameObject;
 import tage.shapes.AnimatedShape;
 
+/**
+ * Runtime state for one Smiling Man instance.
+ * Multiple agents allow the match to scale up scare pressure without creating new meshes mid-game.
+ * Connected to: Created and updated only by MyGameSmilingManSystem.
+ */
 class MyGameSmilingManAgent {
     final int index;
     final GameObject object;

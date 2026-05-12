@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 
 import tage.audio.Sound;
 
+/**
+ * Sound handles for one Mushroom Mon.
+ * Grouping these avoids mixing per-enemy looping sounds with global one-shot effects.
+ * Connected to: Created by MyGameSoundSystem and attached to Mushroom Mon agents.
+ */
 class MyGameMushroomMonSoundSet {
     private final Sound walk;
     private final Sound chase;

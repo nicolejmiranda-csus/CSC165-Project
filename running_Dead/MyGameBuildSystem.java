@@ -8,6 +8,12 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import tage.*;
 
+/**
+ * Handles build mode, preview placement, support rules, material counts, and build networking.
+ * Terrain height is sampled from cached terrain data when the OpenGL height call is not safe,
+ * which prevents build clicks from crashing on the AWT event thread.
+ * Connected to: Owned by MyGame; called by build actions, updater, ProtocolClient, and MyGamePhysicsSystem.
+ */
 public class MyGameBuildSystem {
     private final MyGame game;
     private final HashMap<String, MyGameBuildMeta> buildMeta = new HashMap<>();
@@ -240,6 +246,7 @@ public class MyGameBuildSystem {
     }
 
     private boolean isSupportedPlacement(Vector3f p, int pieceType, int modeType, int roofDir) {
+        if (isSupportedByCurrentPlayerGround(p)) return true;
         if (isGroundSupported(p)) return true;
         for (MyGameBuildMeta meta : buildMeta.values()) {
             if (isSupportUnder(meta, p)) return true;
@@ -257,6 +264,10 @@ public class MyGameBuildSystem {
 
     private boolean isGroundSupported(Vector3f p) {
         return (p.y - buildTerrainHeight(p.x, p.z)) <= game.state.buildGrid + 0.05f;
+    }
+
+    private boolean isSupportedByCurrentPlayerGround(Vector3f p) {
+        return (p.y - currentBuildBaseHeight()) <= game.state.buildGrid + 0.05f;
     }
 
     private boolean isSupportUnder(MyGameBuildMeta support, Vector3f p) {
@@ -420,7 +431,8 @@ public class MyGameBuildSystem {
                 case 3: z -= roofInset; break;
             }
         }
-        return new Vector3f(x, buildTerrainHeight(x, z) + y, z);
+        // Build previews follow the player's current terrain y so walls do not float when the player climbs a hill.
+        return new Vector3f(x, currentBuildBaseHeight() + y, z);
     }
 
     private String buildPieceKey(Vector3f p) {
@@ -428,7 +440,14 @@ public class MyGameBuildSystem {
     }
 
     private float buildTerrainHeight(float x, float z) {
+        // Mouse clicks arrive on the AWT thread, where TAGE's OpenGL height lookup has no active context.
+        // The CPU height-map path gives the same terrain y without touching OpenGL.
         return game.worldBuilder.terrainHeightCpu(x, z);
+    }
+
+    private float currentBuildBaseHeight() {
+        if (game.assets.avatar == null) return 0f;
+        return game.assets.avatar.getWorldLocation().y;
     }
 }
 

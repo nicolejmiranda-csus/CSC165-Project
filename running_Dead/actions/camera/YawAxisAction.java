@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Gamepad-axis input wrapper for rotating the player/camera heading.
+ * Connected to: Created by MyGameInputBinder; forwards camera input to MyGameCameraSystem through MyGame.
+ */
 public class YawAxisAction extends AbstractInputAction {
     private MyGame game;
     private float deadzone = 0.20f;

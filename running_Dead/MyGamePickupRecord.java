@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 import tage.GameObject;
 import tage.physics.PhysicsObject;
 
+/**
+ * One pickup in the world and its network-visible state.
+ * The server sends active/type/location data so every client hides the same collected pickup.
+ * Connected to: Created by MyGamePhysicsSystem and read by MyGameItemSystem and ProtocolClient pickup sync.
+ */
 class MyGamePickupRecord {
     final int id;
     final int type;

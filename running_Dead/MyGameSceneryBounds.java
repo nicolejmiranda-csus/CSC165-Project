@@ -1,5 +1,10 @@
 package running_Dead;
 
+/**
+ * Approximate footprint and vertical offset for a scenery mesh.
+ * These values let the world builder plant models on the terrain even when model origins are not at the base.
+ * Connected to: Produced by MyGameSceneryBoundsBuilder and consumed by MyGameWorldBuilder/MyGamePhysicsSystem.
+ */
 class MyGameSceneryBounds {
     final float minX, minY, minZ, maxX, maxY, maxZ;
     final float width, height, depth;

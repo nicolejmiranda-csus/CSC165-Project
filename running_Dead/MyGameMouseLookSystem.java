@@ -5,6 +5,11 @@ import java.awt.event.*;
 import org.joml.Vector3f;
 import tage.*;
 
+/**
+ * Implements mouse-look while keeping the cursor recentered for continuous camera control.
+ * The game can toggle this off for popups so Swing input still works normally.
+ * Connected to: Owned by MyGame; called from mouse events and MyGameUpdater to drive camera aim.
+ */
 public class MyGameMouseLookSystem {
     private final MyGame game;
 

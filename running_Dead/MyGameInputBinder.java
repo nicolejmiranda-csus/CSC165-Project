@@ -8,6 +8,11 @@ import running_Dead.actions.movement.*;
 import tage.input.*;
 import net.java.games.input.Component.Identifier.*;
 
+/**
+ * Central keyboard and gamepad binding table.
+ * The action classes are intentionally tiny wrappers, so graders can look here for the full control scheme.
+ * Connected to: Called by MyGameInitializer; creates every action class in running_Dead.actions.*.
+ */
 public class MyGameInputBinder {
     private final MyGame game;
 

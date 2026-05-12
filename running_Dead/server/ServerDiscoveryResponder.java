@@ -14,6 +14,11 @@ import tage.networking.NetworkDiscovery;
  * Replies to LAN discovery broadcasts so clients can find the game server
  * without manually typing an IPv4 address.
  */
+/**
+ * UDP auto-discovery responder for local multiplayer.
+ * Clients can launch with AUTO and find the server without typing an IP address on lab machines.
+ * Connected to: Created by NetworkingServer; answers NetworkDiscovery requests from MyGameNetworkingSystem.
+ */
 public class ServerDiscoveryResponder implements AutoCloseable {
 	private final DatagramSocket socket;
 	private final int gamePort;

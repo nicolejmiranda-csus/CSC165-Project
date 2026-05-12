@@ -10,6 +10,11 @@ import tage.TextureImage;
 import tage.shapes.AnimatedShape;
 import tage.shapes.TerrainPlane;
 
+/**
+ * Central asset holder used after loadShapes/loadTextures have populated TAGE objects.
+ * Systems read from here while MyGameLoaders creates most assets, which avoids duplicate models.
+ * Connected to: Filled by MyGameLoaders; read by world, items, physics, HUD, lighting, and networking systems.
+ */
 public class MyGameAssets {
     // Shapes
     ObjShape quadS, linxS, linyS, linzS;

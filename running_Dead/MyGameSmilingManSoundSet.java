@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 
 import tage.audio.Sound;
 
+/**
+ * Positional audio bundle for one Smiling Man.
+ * Each agent owns its sounds so chase/stare audio follows the active monster.
+ * Connected to: Created by MyGameSoundSystem and attached to Smiling Man agents.
+ */
 class MyGameSmilingManSoundSet {
     private final Sound walk;
     private final Sound run;

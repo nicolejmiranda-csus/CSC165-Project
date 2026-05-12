@@ -5,6 +5,11 @@ import org.joml.Vector3f;
 import tage.GameObject;
 import tage.shapes.AnimatedShape;
 
+/**
+ * Runtime state for one Mushroom Mon enemy.
+ * It stores both AI state and the rendered object so instances can hide, chase, and explode independently.
+ * Connected to: Created and updated only by MyGameMushroomMonSystem.
+ */
 class MyGameMushroomMonAgent {
     final GameObject object;
     final AnimatedShape shape;

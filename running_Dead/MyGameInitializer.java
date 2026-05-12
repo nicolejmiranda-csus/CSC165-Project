@@ -1,5 +1,10 @@
 package running_Dead;
 
+/**
+ * Performs one-time setup after TAGE creates the render system.
+ * This connects window size, cameras, controllers, input, physics, and networking in one place.
+ * Connected to: Called from MyGame.initializeGame; wires input, camera, physics, audio, and networking together.
+ */
 public class MyGameInitializer {
     private final MyGame game;
 

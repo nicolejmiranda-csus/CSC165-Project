@@ -2,9 +2,16 @@ package running_Dead.server;
 
 import java.io.IOException;
 
+import running_Dead.MyGameNativePathSanitizer;
 import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.NetworkDiscovery;
 
+/**
+ * Stand-alone relay process for the multiplayer match.
+ * The server owns shared state such as pickups, roles, names, builds, and round timing
+ * so every client sees the same lobby and match progression.
+ * Connected to: Launched by run_server.bat/java command; creates UDP/TCP server and ServerDiscoveryResponder.
+ */
 public class NetworkingServer {
 	private GameServerUDP thisUDPServer;
 	private GameServerTCP thisTCPServer;
@@ -69,6 +76,8 @@ public class NetworkingServer {
 	}
 
 	public static void main(String[] args) {
+		MyGameNativePathSanitizer.relaunchWithSanitizedPathIfNeeded(NetworkingServer.class.getName(), args);
+		MyGameNativePathSanitizer.apply();
 		if (args.length > 1) {
 			new NetworkingServer(Integer.parseInt(args[0]), args[1]);
 		} else {

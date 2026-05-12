@@ -1,5 +1,10 @@
 package running_Dead;
 
+/**
+ * Per-frame update order for the whole game.
+ * The sequence matters because input, physics, AI, networking, lighting, and HUD depend on each other.
+ * Connected to: Called by MyGame.update; defines the frame order for all major systems.
+ */
 public class MyGameUpdater {
     private final MyGame game;
 

@@ -18,7 +18,23 @@ import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.NetworkDiscovery;
 import tage.shapes.AnimatedShape;
 
+/**
+ * Main Running_Dead game coordinator.
+ * Most real work is delegated to named systems so the class fulfills requirements
+ * and anyone can jump directly to movement, items, AI, building, lighting, or networking.
+ * Connected to: Launched by the run scripts/java command; owns all MyGame* systems and is called by input actions.
+ */
 public class MyGame extends VariableFrameRateGame {
+	/*
+	Running_Dead requirement map
+	Multiplayer discovery/client startup: main, MyGameNetworkingSystem, ProtocolClient, NetworkingServer
+	Role-based gameplay: MyGameState, MyGameHUDSystem, MyGameItemSystem, GameServer state broadcasts
+	Day/night lighting and flashlight visibility: MyGameLighting, MyGameItemSystem, StandardFrag.glsl
+	Terrain-aware building and scenery placement: MyGameBuildSystem, MyGameWorldBuilder, MyGamePhysicsSystem
+	AI threats: MyGameSmilingManSystem and MyGameMushroomMonSystem
+	Team-only name labels: MyGameHUDSystem uses TAGE world HUD labels so humans see humans and zombies see zombies
+	*/
+
 	private static Engine engine;
 
 	final MyGameState state = new MyGameState();
@@ -79,24 +95,61 @@ public class MyGame extends VariableFrameRateGame {
 		return choice == null ? "playerModel1" : choice.toString();
 	}
 
+	private static String choosePlayerNamePopup() {
+		String fallback = System.getProperty("user.name", "Player");
+		while (true) {
+			String value = JOptionPane.showInputDialog(
+					null,
+					"Enter your player name:",
+					"Player Name",
+					JOptionPane.QUESTION_MESSAGE);
+			if (value == null) value = fallback;
+			value = sanitizePlayerName(value);
+			if (!value.isEmpty()) return value;
+			JOptionPane.showMessageDialog(null, "Player name cannot be empty.", "Player Name", JOptionPane.WARNING_MESSAGE);
+		}
+	}
+
+	private static String sanitizePlayerName(String value) {
+		if (value == null) return "";
+		String cleaned = value.replace(',', ' ').trim().replaceAll("\\s+", " ");
+		if (cleaned.length() > 24) cleaned = cleaned.substring(0, 24).trim();
+		return cleaned;
+	}
+
+	private static String joinedArgs(String[] args, int start) {
+		if (args == null || start >= args.length) return "";
+		StringBuilder builder = new StringBuilder();
+		for (int i = start; i < args.length; i++) {
+			if (builder.length() > 0) builder.append(' ');
+			builder.append(args[i]);
+		}
+		return builder.toString();
+	}
+
 	public static void main(String[] args) {
+		MyGameNativePathSanitizer.relaunchWithSanitizedPathIfNeeded(MyGame.class.getName(), args);
+		MyGameNativePathSanitizer.apply();
 		MyGame game;
 
 		if (args.length == 0) {
 			game = new MyGame();
 			game.setSelectedAvatarType(chooseAvatarPopup());
+			game.setPlayerName(choosePlayerNamePopup());
 		} else if (args.length >= 1 && NetworkDiscovery.usesAutoDiscovery(args[0])) {
 			game = new MyGame(args[0]);
 			game.setSelectedAvatarType(args.length >= 2 ? args[1] : chooseAvatarPopup());
+			game.setPlayerName(args.length >= 3 ? joinedArgs(args, 2) : choosePlayerNamePopup());
 		} else if (args.length >= 3) {
 			game = new MyGame(args[0], Integer.parseInt(args[1]), args[2]);
 			game.setSelectedAvatarType(args.length >= 4 ? args[3] : chooseAvatarPopup());
+			game.setPlayerName(args.length >= 5 ? joinedArgs(args, 4) : choosePlayerNamePopup());
 		} else {
 			System.out.println("Usage:");
 			System.out.println("Single-player: java running_Dead.MyGame");
 			System.out.println("Server       : java running_Dead.server.NetworkingServer <port> <UDP|TCP>");
-			System.out.println("Auto client  : java running_Dead.MyGame AUTO [avatarType]");
-			System.out.println("Manual client: java running_Dead.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType]");
+			System.out.println("Auto client  : java running_Dead.MyGame AUTO [avatarType] [playerName]");
+			System.out.println("Manual client: java running_Dead.MyGame <serverAddress> <serverPort> <UDP|TCP> [avatarType] [playerName]");
 			System.out.println("Note         : NetworkingServer tracks round, pickup, role, health, build, and animation state.");
 			System.out.println("Auto client  : searches the LAN for a running NetworkingServer.");
 			return;
@@ -536,9 +589,36 @@ public class MyGame extends VariableFrameRateGame {
 		return state.selectedAvatarType;
 	}
 
+	public String getPlayerName() {
+		return state.playerName;
+	}
+
 	public void setSelectedAvatarType(String type) {
-		if (type != null)
-			state.selectedAvatarType = type;
+		if ("playerModel2".equals(type)) state.selectedAvatarType = "playerModel2";
+		else state.selectedAvatarType = "playerModel1";
+	}
+
+	public void setPlayerName(String name) {
+		String cleaned = sanitizePlayerName(name);
+		state.playerName = cleaned.isEmpty() ? "Player" : cleaned;
+	}
+
+	public void applyRemotePlayerName(UUID id, String name) {
+		if (id == null) return;
+		String cleaned = sanitizePlayerName(name);
+		state.remotePlayerNames.put(id, cleaned.isEmpty() ? "Player" : cleaned);
+	}
+
+	public void announceRemotePlayerJoined(UUID id, String name) {
+		applyRemotePlayerName(id, name);
+		String joinedName = state.remotePlayerNames.getOrDefault(id, "Player");
+		hudSystem.showEvent(joinedName + " has joined the lobby", 2.2);
+		soundSystem.playLobbyJoin();
+	}
+
+	public void announceLocalPlayerJoined() {
+		hudSystem.showEvent(getPlayerName() + " has joined the lobby", 2.2);
+		soundSystem.playLobbyJoin();
 	}
 
 	boolean isPlayerModel1Selected() {

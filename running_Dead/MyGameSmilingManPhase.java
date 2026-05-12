@@ -1,5 +1,10 @@
 package running_Dead;
 
+/**
+ * State machine phases for Smiling Man.
+ * Splitting still, fake idle, stare warning, chase, and attack makes the horror behavior readable.
+ * Connected to: Used by MyGameSmilingManSystem to branch monster behavior.
+ */
 enum MyGameSmilingManPhase {
     HIDDEN,
     WANDER_IDLE,

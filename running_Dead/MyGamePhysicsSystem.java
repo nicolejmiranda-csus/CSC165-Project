@@ -23,6 +23,11 @@ import tage.TextureImage;
 import tage.physics.PhysicsEngine;
 import tage.physics.PhysicsObject;
 
+/**
+ * Bridges TAGE objects to Bullet physics bodies and resolves gameplay collisions.
+ * It also performs stuck recovery so the player is nudged out of scenery colliders instead of remaining trapped.
+ * Connected to: Owned by MyGame; initialized by MyGameInitializer and called by movement, build, item, and AI systems.
+ */
 public class MyGamePhysicsSystem {
     public static final int PROJECTILE_ROCK = 0;
     public static final int PROJECTILE_BABY_ZOMBIE = 1;
@@ -1715,30 +1720,85 @@ public class MyGamePhysicsSystem {
             }
         }
 
-        if (blocked && hasLastSafePlayerLocation) {
+        Vector3f current = game.assets.avatar.getWorldLocation();
+        if (!blocked) {
+            MyGameSceneryRecord sceneryBlock = findBlockingSceneryCollider(current);
+            if (sceneryBlock != null) {
+                blocked = true;
+                blockingPosition = sceneryBlock.center;
+            }
+        }
+        if (!blocked) {
+            MyGameBuildRecord buildBlock = findPlayerBuildBlock(current);
+            if (buildBlock != null) {
+                blocked = true;
+                blockingPosition = buildBlock.position;
+            }
+        }
+
+        if (blocked) {
             Vector3f corrected = getUnstuckCollisionLocation(blockingPosition);
             game.assets.avatar.setLocalLocation(corrected);
             syncLocalPlayerBody();
             game.networking.sendPlayerTransform();
         } else {
-            lastSafePlayerLocation = new Vector3f(game.assets.avatar.getWorldLocation());
+            lastSafePlayerLocation = new Vector3f(current);
             hasLastSafePlayerLocation = true;
         }
     }
 
     private Vector3f getUnstuckCollisionLocation(Vector3f blockingPosition) {
         Vector3f current = game.assets.avatar.getWorldLocation();
-        Vector3f corrected = new Vector3f(lastSafePlayerLocation);
+        Vector3f searched = findNearestUnblockedPlayerLocation(current, blockingPosition);
+        if (searched != null) return searched;
+
+        Vector3f corrected = hasLastSafePlayerLocation ? new Vector3f(lastSafePlayerLocation) : new Vector3f(current);
         if (blockingPosition != null) {
             Vector3f push = new Vector3f(current).sub(blockingPosition);
             push.y = 0f;
             if (push.lengthSquared() < 0.0001f) push = new Vector3f(horizontalForward()).negate();
-            push.normalize().mul(0.35f);
+            push.normalize().mul(0.90f);
             corrected.add(push);
         }
         corrected = clampToWorldBounds(corrected);
         corrected.y = game.state.onGround ? getWalkableGroundHeight(corrected.x, corrected.z, current.y) : current.y;
         return corrected;
+    }
+
+    private Vector3f findNearestUnblockedPlayerLocation(Vector3f start, Vector3f blockingPosition) {
+        if (start == null) return null;
+        Vector3f preferred = blockingPosition == null ? new Vector3f(horizontalForward()).negate() : new Vector3f(start).sub(blockingPosition);
+        preferred.y = 0f;
+        if (preferred.lengthSquared() < 0.0001f) preferred.set(1f, 0f, 0f);
+        preferred.normalize();
+
+        float[] radii = {0.45f, 0.70f, 1.00f, 1.35f, 1.75f, 2.25f, 2.85f, 3.55f};
+        int samples = 16;
+        for (float radius : radii) {
+            for (int i = 0; i < samples; i++) {
+                float angle = (float) (Math.PI * 2.0 * i / samples);
+                float c = (float) Math.cos(angle);
+                float s = (float) Math.sin(angle);
+                Vector3f dir = new Vector3f(
+                        preferred.x * c - preferred.z * s,
+                        0f,
+                        preferred.x * s + preferred.z * c);
+                Vector3f candidate = clampToWorldBounds(new Vector3f(start).add(dir.mul(radius)));
+                candidate.y = getWalkableGroundHeight(candidate.x, candidate.z, start.y);
+                if (!isPlayerBlockedBySolidWorld(candidate)) return candidate;
+            }
+        }
+        return null;
+    }
+
+    private boolean isPlayerBlockedBySolidWorld(Vector3f playerFeet) {
+        if (playerFeet == null) return true;
+        if (Math.abs(playerFeet.x) > GameConstants.WORLD_EDGE_LIMIT || Math.abs(playerFeet.z) > GameConstants.WORLD_EDGE_LIMIT) return true;
+        return findBlockingSceneryCollider(playerFeet) != null || findPlayerBuildBlock(playerFeet) != null;
+    }
+
+    private MyGameBuildRecord findPlayerBuildBlock(Vector3f playerFeet) {
+        return findNpcBuildBlock(playerFeet, playerBodyRadius * 0.90f);
     }
 
     private boolean isWalkableTopContact(MyGameSceneryRecord record) {
@@ -1749,7 +1809,13 @@ public class MyGamePhysicsSystem {
     }
 
     private boolean isBlockedBySceneryCollider(Vector3f playerFeet) {
-        if (playerFeet == null || sceneryRecords.isEmpty()) return false;
+        return findBlockingSceneryCollider(playerFeet) != null;
+    }
+
+    private MyGameSceneryRecord findBlockingSceneryCollider(Vector3f playerFeet) {
+        if (playerFeet == null || sceneryRecords.isEmpty()) return null;
+        MyGameSceneryRecord best = null;
+        float bestDistSq = Float.MAX_VALUE;
         for (MyGameSceneryRecord record : sceneryRecords) {
             if (record == null) continue;
             if (!isInsideSceneryFootprint(record, playerFeet.x, playerFeet.z, playerBodyRadius * 0.65f)) continue;
@@ -1758,9 +1824,15 @@ public class MyGamePhysicsSystem {
             if (!record.tree && record.walkableTop && playerFeet.y >= record.walkableTopY - 0.30f) {
                 continue;
             }
-            return true;
+            float dx = playerFeet.x - record.center.x;
+            float dz = playerFeet.z - record.center.z;
+            float distSq = dx * dx + dz * dz;
+            if (distSq < bestDistSq) {
+                bestDistSq = distSq;
+                best = record;
+            }
         }
-        return false;
+        return best;
     }
 
     private boolean isNpcBlockedByScenery(Vector3f npcFeet, float radius) {

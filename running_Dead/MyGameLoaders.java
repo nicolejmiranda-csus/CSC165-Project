@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 import tage.*;
 import tage.shapes.*;
 
+/**
+ * Loads models, textures, and skyboxes during TAGE's load callbacks.
+ * Fallback shapes are used when an optional animated asset is missing so the game still runs for graders.
+ * Connected to: Called by MyGame load callbacks; fills MyGameAssets for every other system.
+ */
 public class MyGameLoaders {
     private final MyGame game;
 

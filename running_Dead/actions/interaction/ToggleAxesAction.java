@@ -4,6 +4,10 @@ import running_Dead.MyGame;
 import tage.input.action.AbstractInputAction;
 import net.java.games.input.Event;
 
+/**
+ * Input wrapper for showing or hiding debug world axes.
+ * Connected to: Created by MyGameInputBinder; forwards context/primary input to MyGame gameplay systems.
+ */
 public class ToggleAxesAction extends AbstractInputAction {
     private MyGame game;
 

@@ -9,10 +9,17 @@ import org.joml.Vector3f;
 
 import running_Dead.GameConstants;
 import running_Dead.MyGame;
+import running_Dead.MyGameLighting;
 import tage.GameObject;
+import tage.Light;
 import tage.ObjShape;
 import tage.TextureImage;
 
+/**
+ * Creates, updates, and removes remote player avatars.
+ * Keeping ghost logic here prevents the main game from manually tracking every remote model and prop.
+ * Connected to: Owned by MyGame; called by ProtocolClient and MyGameHUDSystem for remote players.
+ */
 public class GhostManager {
 	private final MyGame game;
 	private final Vector<GhostAvatar> ghostAvatars = new Vector<GhostAvatar>();
@@ -22,6 +29,10 @@ public class GhostManager {
 	}
 
 	public void createGhostAvatar(UUID id, String avatarType, Vector3f position, float yaw) throws IOException {
+		createGhostAvatar(id, avatarType, "Player", position, yaw);
+	}
+
+	public void createGhostAvatar(UUID id, String avatarType, String playerName, Vector3f position, float yaw) throws IOException {
 		System.out.println("adding ghost with ID --> " + id);
 
 		if (findAvatar(id) != null)
@@ -30,7 +41,7 @@ public class GhostManager {
 		ObjShape s = game.createGhostShape(id, avatarType);
 		TextureImage t = game.getGhostTexture(avatarType);
 
-		GhostAvatar newAvatar = new GhostAvatar(id, avatarType, s, t, position);
+		GhostAvatar newAvatar = new GhostAvatar(id, avatarType, playerName, s, t, position);
 		newAvatar.setDetailTextureImage(game.getGhostDetailTexture(avatarType));
 		newAvatar.getRenderStates().setTextureDetailBlend(true);
 		newAvatar.getRenderStates().castsShadow(true);
@@ -48,6 +59,7 @@ public class GhostManager {
 		if (ghostAvatar != null) {
 			game.removeRemotePhysicsFor(id);
 			removeHeldItem(ghostAvatar);
+			removeFlashlightSpotlight(ghostAvatar);
 			MyGame.getEngine().getSceneGraph().removeGameObject(ghostAvatar);
 			ghostAvatars.remove(ghostAvatar);
 			game.releaseGhostShape(id);
@@ -78,19 +90,24 @@ public class GhostManager {
 		if (ghostAvatar != null) {
 			ghostAvatar.setPosition(position);
 			ghostAvatar.setYaw(yaw);
+			updateGhostFlashlightSpotlight(ghostAvatar);
 		} else {
 			System.out.println("tried to update ghost avatar, but unable to find ghost in list");
 		}
 	}
 
-	public void updateGhostHeldItem(UUID id, int itemType, boolean flashlightOn) {
+	public void updateGhostHeldItem(UUID id, int itemType, boolean flashlightOn, Vector3f flashlightDirection) {
 		GhostAvatar ghostAvatar = findAvatar(id);
 		if (ghostAvatar == null) return;
 		itemType = normalizeHeldItemType(itemType);
 		ghostAvatar.heldFlashlightOn = flashlightOn;
+		if (flashlightDirection != null && flashlightDirection.lengthSquared() > 0.0001f) {
+			ghostAvatar.flashlightDirection.set(flashlightDirection).normalize();
+		}
 
 		if (itemType == GameConstants.ITEM_NONE) {
 			removeHeldItem(ghostAvatar);
+			updateGhostFlashlightSpotlight(ghostAvatar);
 			return;
 		}
 
@@ -113,6 +130,11 @@ public class GhostManager {
 		ghostAvatar.heldItem.setLocalScale(new Matrix4f().scaling(game.getRemoteHeldItemScale(ghostAvatar.getAvatarType(), itemType)));
 		ghostAvatar.heldItem.setLocalRotation(game.getRemoteHeldItemRotation(itemType));
 		ghostAvatar.heldItem.getRenderStates().enableRendering();
+		updateGhostFlashlightSpotlight(ghostAvatar);
+	}
+
+	public void updateGhostHeldItem(UUID id, int itemType, boolean flashlightOn) {
+		updateGhostHeldItem(id, itemType, flashlightOn, null);
 	}
 
 	private int normalizeHeldItemType(int itemType) {
@@ -129,6 +151,49 @@ public class GhostManager {
 		ghostAvatar.heldItem = null;
 		ghostAvatar.heldItemType = GameConstants.ITEM_NONE;
 		ghostAvatar.heldFlashlightOn = false;
+		updateGhostFlashlightSpotlight(ghostAvatar);
+	}
+
+	private void updateGhostFlashlightSpotlight(GhostAvatar ghostAvatar) {
+		if (ghostAvatar == null) return;
+		boolean active = ghostAvatar.heldItemType == GameConstants.ITEM_FLASHLIGHT
+				&& ghostAvatar.heldFlashlightOn
+				&& ghostAvatar.heldItem != null
+				&& ghostAvatar.heldItem.getRenderStates().renderingEnabled();
+		if (!active) {
+			if (ghostAvatar.flashlightSpotlight != null) {
+				ghostAvatar.flashlightSpotlight.disable();
+				ghostAvatar.flashlightSpotlight.setLocation(new Vector3f(0f, -100f, 0f));
+			}
+			return;
+		}
+
+        if (ghostAvatar.flashlightSpotlight == null) {
+            // Remote flashlight beams are real lights so every client can see where another player is aiming.
+            ghostAvatar.flashlightSpotlight = new Light();
+			MyGameLighting.configureFlashlightSpotlight(ghostAvatar.flashlightSpotlight);
+			ghostAvatar.flashlightSpotlight.disable();
+			MyGame.getEngine().getSceneGraph().addLight(ghostAvatar.flashlightSpotlight);
+		}
+
+		Vector3f direction = new Vector3f(ghostAvatar.flashlightDirection);
+		if (direction.lengthSquared() < 0.0001f) {
+			direction.set(ghostAvatar.getWorldForwardVector());
+			if (direction.lengthSquared() < 0.0001f) direction.set(0f, 0f, -1f);
+		}
+		direction.normalize();
+		Vector3f lightPos = new Vector3f(ghostAvatar.heldItem.getWorldLocation())
+				.add(new Vector3f(direction).mul(0.18f))
+				.add(0f, 0.03f, 0f);
+		ghostAvatar.flashlightSpotlight.setLocation(lightPos);
+		ghostAvatar.flashlightSpotlight.setDirection(direction);
+		ghostAvatar.flashlightSpotlight.enable();
+	}
+
+	private void removeFlashlightSpotlight(GhostAvatar ghostAvatar) {
+		if (ghostAvatar == null || ghostAvatar.flashlightSpotlight == null) return;
+		MyGame.getEngine().getSceneGraph().removeLight(ghostAvatar.flashlightSpotlight);
+		ghostAvatar.flashlightSpotlight = null;
 	}
 
 	public void applyGhostAnimation(UUID id, String animationName) {

@@ -3,6 +3,11 @@ package running_Dead;
 import org.joml.Vector3f;
 import tage.*;
 
+/**
+ * Owns third-person follow, first-person flashlight aiming, and the overhead map camera.
+ * Separating this from movement lets the player body and camera rotate together only when needed.
+ * Connected to: Owned by MyGame; called by camera actions, mouse look, movement, and MyGameUpdater.
+ */
 public class MyGameCameraSystem {
     private final MyGame game;
 

@@ -15,6 +15,11 @@ import tage.GameObject;
 import tage.input.InputManager;
 import tage.networking.IGameConnection.ProtocolType;
 
+/**
+ * Mutable match state shared by the game systems.
+ * Values synchronized with the server live here so networking, HUD, and gameplay read the same source.
+ * Connected to: Owned by MyGame and shared by all systems as the match state source of truth.
+ */
 public class MyGameState {
     InputManager im;
     GhostManager gm;
@@ -163,4 +168,6 @@ public class MyGameState {
     boolean byeMessageSent = false;
     boolean isMultiplayer = false;
     String selectedAvatarType = "playerModel1";
+    String playerName = "Player";
+    final HashMap<UUID, String> remotePlayerNames = new HashMap<>();
 }

@@ -4,6 +4,11 @@ import org.joml.Vector3f;
 
 import tage.audio.Sound;
 
+/**
+ * Per-avatar sound bundle for footsteps and player actions.
+ * Local and ghost players each need separate sound objects so positional audio follows the correct model.
+ * Connected to: Created by MyGameSoundSystem for local and ghost avatars.
+ */
 class MyGamePlayerSoundSet {
     private final Sound walk;
     private final Sound run;

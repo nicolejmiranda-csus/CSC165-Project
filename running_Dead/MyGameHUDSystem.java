@@ -5,11 +5,19 @@ import running_Dead.networking.GhostAvatar;
 import com.jogamp.opengl.util.gl2.GLUT;
 import tage.HUDmanager;
 
+/**
+ * Builds all HUD text, role hints, event messages, and team-only floating player names.
+ * Floating names intentionally filter by role so HUD labels do not reveal the enemy team.
+ * Connected to: Owned by MyGame; called by MyGameUpdater and uses TAGE HUDmanager/world HUD labels.
+ */
 public class MyGameHUDSystem {
     private final MyGame game;
     private final Vector3f hudLight = new Vector3f(0.95f, 0.94f, 0.72f);
+    private final Vector3f humanNameColor = new Vector3f(0.72f, 0.92f, 1.0f);
+    private final Vector3f zombieNameColor = new Vector3f(0.62f, 1.0f, 0.54f);
     private static final int HUD_SMALL_FONT = GLUT.BITMAP_9_BY_15;
     private static final int HUD_LARGE_FONT = GLUT.BITMAP_TIMES_ROMAN_24;
+    private static final int HUD_NAME_FONT = GLUT.BITMAP_HELVETICA_18;
 
     public MyGameHUDSystem(MyGame game) {
         this.game = game;
@@ -43,6 +51,7 @@ public class MyGameHUDSystem {
 
     public void updateHUD() {
         HUDmanager hud = MyGame.getEngine().getHUDmanager();
+        updateFloatingPlayerNames(hud);
         hud.setHUD2font(HUD_LARGE_FONT);
         hud.setHUD3font(HUD_LARGE_FONT);
         hud.setHUD4font(HUD_SMALL_FONT);
@@ -86,6 +95,25 @@ public class MyGameHUDSystem {
         } else {
             hud.setHUD4("", hudLight, 0, 0);
             hud.setHUD5("", hudLight, 0, 0);
+        }
+    }
+
+    private void updateFloatingPlayerNames(HUDmanager hud) {
+        hud.clearWorldHUDStrings();
+        if (!game.state.isMultiplayer || game.state.gm == null || game.state.fullMapMode || game.assets.avatar == null) return;
+        Vector3f localPos = game.assets.avatar.getWorldLocation();
+        for (GhostAvatar ghost : game.getGhostManager().getGhostAvatarsSnapshot()) {
+            java.util.UUID id = ghost.getID();
+            boolean remoteZombie = game.state.remoteZombieStates.getOrDefault(id, false);
+            // Name labels are a team communication aid, not an enemy reveal mechanic.
+            if (remoteZombie != game.state.localPlayerZombie) continue;
+            Vector3f ghostPos = ghost.getWorldLocation();
+            if (localPos.distance(ghostPos) > GameConstants.NAME_LABEL_MAX_DISTANCE) continue;
+            if (!remoteZombie && game.worldBuilder.isInsideTableCover(ghostPos)) continue;
+            String name = game.state.remotePlayerNames.getOrDefault(id, ghost.getPlayerName());
+            if (name == null || name.isBlank()) continue;
+            Vector3f labelPos = new Vector3f(ghostPos).add(0f, 2.45f, 0f);
+            hud.addWorldHUDString(name, labelPos, remoteZombie ? zombieNameColor : humanNameColor, HUD_NAME_FONT);
         }
     }
 

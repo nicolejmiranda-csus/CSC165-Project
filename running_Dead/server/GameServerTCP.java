@@ -8,6 +8,11 @@ import tage.networking.IGameConnection.ProtocolType;
 import tage.networking.server.GameConnectionServer;
 import tage.networking.server.IClientInfo;
 
+/**
+ * TCP version of the Running_Dead relay server.
+ * It mirrors the UDP server behavior for classes/tests that choose TCP instead of UDP.
+ * Connected to: Created by NetworkingServer for TCP mode; delegates authoritative state to ServerGameState.
+ */
 public class GameServerTCP extends GameConnectionServer<UUID> {
 	private final ServerGameState gameState;
 
@@ -109,7 +114,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					String createAvatarType = messageTokens[2];
 					String[] createPos = { messageTokens[3], messageTokens[4], messageTokens[5] };
 					String createYaw = messageTokens[6];
-					sendCreateMessages(createClientId, createAvatarType, createPos, createYaw);
+					String createName = messageTokens.length >= 8 ? messageTokens[7] : "Player";
+					sendCreateMessages(createClientId, createAvatarType, createPos, createYaw, createName);
 					sendWantsDetailsMessages(createClientId);
 					return;
 
@@ -121,7 +127,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					String detailsAvatarType = messageTokens[3];
 					String[] detailsPos = { messageTokens[4], messageTokens[5], messageTokens[6] };
 					String detailsYaw = messageTokens[7];
-					sendDetailsForMessage(detailsClientId, detailsRemoteId, detailsAvatarType, detailsPos, detailsYaw);
+					String detailsName = messageTokens.length >= 9 ? messageTokens[8] : "Player";
+					sendDetailsForMessage(detailsClientId, detailsRemoteId, detailsAvatarType, detailsPos, detailsYaw, detailsName);
 					return;
 
 				case "move":
@@ -132,7 +139,10 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					String moveYaw = messageTokens[5];
 					String equippedItem = messageTokens.length >= 7 ? messageTokens[6] : "0";
 					String flashlightOn = messageTokens.length >= 8 ? messageTokens[7] : "0";
-					sendMoveMessages(moveClientId, movePos, moveYaw, equippedItem, flashlightOn);
+					String[] flashlightDir = messageTokens.length >= 11
+							? new String[] { messageTokens[8], messageTokens[9], messageTokens[10] }
+							: new String[] { "0", "0", "-1" };
+					sendMoveMessages(moveClientId, movePos, moveYaw, equippedItem, flashlightOn, flashlightDir);
 					return;
 
 				case "build":
@@ -302,8 +312,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	// Sends a CREATE message to all other clients when a new player joins.
 	// This tells everyone to create a ghost avatar using the player's id,
 	// chosen avatar type, and current position.
-	// Format: create,clientID,avatarType,x,y,z,yaw
-	public void sendCreateMessages(UUID clientID, String avatarType, String[] position, String yaw) {
+	// Format: create,clientID,avatarType,x,y,z,yaw,playerName
+	public void sendCreateMessages(UUID clientID, String avatarType, String[] position, String yaw, String playerName) {
 		if (position == null || position.length < 3) {
 			System.out.println("create message missing position data");
 			return;
@@ -315,7 +325,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 					+ "," + position[0]
 					+ "," + position[1]
 					+ "," + position[2]
-					+ "," + yaw;
+					+ "," + yaw
+					+ "," + playerName;
 
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
@@ -326,8 +337,8 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 
 	// Sends updated position info from one client to another specific client.
 	// This is used when a new player joins and needs the current state of others.
-	// Format: dsfr,clientID,avatarType,x,y,z,yaw
-	public void sendDetailsForMessage(UUID clientID, UUID remoteId, String avatarType, String[] position, String yaw) {
+	// Format: dsfr,clientID,avatarType,x,y,z,yaw,playerName
+	public void sendDetailsForMessage(UUID clientID, UUID remoteId, String avatarType, String[] position, String yaw, String playerName) {
 		try {
 			String message = new String("dsfr," + clientID.toString());
 			message += "," + avatarType;
@@ -335,6 +346,7 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 			message += "," + position[1];
 			message += "," + position[2];
 			message += "," + yaw;
+			message += "," + playerName;
 			logDirectPacket(message, remoteId);
 			sendPacket(message, remoteId);
 		} catch (IOException e) {
@@ -369,9 +381,9 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 	 * connected to the server when it receives a MOVE message from the remote
 	 * client.
 	 * <p>
-	 * Message Format: (move,remoteId,x,y,z,yaw,equippedItem,flashlightOn)
+	 * Message Format: (move,remoteId,x,y,z,yaw,equippedItem,flashlightOn,flashDirX,flashDirY,flashDirZ)
 	 */
-	public void sendMoveMessages(UUID clientID, String[] position, String yaw, String equippedItem, String flashlightOn) {
+	public void sendMoveMessages(UUID clientID, String[] position, String yaw, String equippedItem, String flashlightOn, String[] flashlightDir) {
 		try {
 			String message = new String("move," + clientID.toString());
 			message += "," + position[0];
@@ -380,6 +392,9 @@ public class GameServerTCP extends GameConnectionServer<UUID> {
 			message += "," + yaw;
 			message += "," + equippedItem;
 			message += "," + flashlightOn;
+			message += "," + flashlightDir[0];
+			message += "," + flashlightDir[1];
+			message += "," + flashlightDir[2];
 			logForwardPacket(message, clientID);
 			forwardPacketToAll(message, clientID);
 		} catch (IOException e) {
