@@ -1,59 +1,6 @@
 ## New: What I Changed On `givin-javadocs-and-fixes`
 
-### Package Rename
-
-I renamed the game package from `a3` to `running_Dead` because that is the current name of the game.
-
-* Moved the main game files into `running_Dead`.
-* Moved the actions, networking, and server code into `running_Dead`.
-* Updated scripts to run `running_Dead.MyGame`.
-* Removed the old `original_tage` folder.
-
-### Graphics And Shader Upgrades
-
-I added the CSC155-style graphics work into the CSC165 game.
-
-* Added shadow mapping.
-* Added normal mapping.
-* Added detail/far texture blending.
-* Added fog.
-* Added cloud rendering.
-* Added reflection/environment controls.
-* Fixed the flashlight spotlight direction in the shader.
-* Updated `StandardFrag.glsl`.
-
-### Shadow And Lighting Fixes
-
-I fixed the bad hard shadow and reflection issues around the player.
-
-* Reduced fake shadow artifacts.
-* Stopped terrain from casting bad self-shadows.
-* Made player and NPC shadows behave better.
-* Kept the build preview from casting shadows.
-* Improved material settings so objects are not overly shiny.
-
-### Day And Night Cycle
-
-I added a synchronized day/night cycle.
-
-* Day lasts 150 seconds.
-* Night lasts 150 seconds.
-* Each round starts at a randomized point in the cycle.
-* Clients sync the same day/night timing from the server.
-* Day uses the day cubemap.
-* Night uses the night cubemap.
-* Humans get a small local-only night light.
-* Zombies get better night vision.
-
-### Flashlight Improvements
-
-I improved flashlight gameplay and multiplayer visibility.
-
-* Flashlight aims with the camera/player direction.
-* All clients can see other players’ flashlight spotlights.
-* The private human night glow is not networked.
-* Fixed the issue where remote clients saw the cone/spotlight from the wrong direction.
-* Flashlight state is sent through movement packets.
+This branch builds on the shader/graphics work from `givin-glsl-shaders` and focuses more on multiplayer, player names, terrain fixes, build fixes, physics, documentation, and run script cleanup.
 
 ### Floating Player Names
 
@@ -77,6 +24,7 @@ I improved multiplayer startup and syncing.
 * Synced held items between clients.
 * Synced zombie baby/flashlight item visibility.
 * Improved server state snapshots for late-joining clients.
+* Flashlight state is sent through movement packets so other clients can see it correctly.
 
 ### World And Terrain Fixes
 
@@ -111,7 +59,7 @@ I improved collider behavior.
 
 ### TAGE Engine Updates
 
-I updated TAGE to support the new game features.
+I updated TAGE to support the new gameplay and UI features.
 
 * Added world-positioned HUD labels.
 * Added depth-tested name label rendering.
@@ -292,3 +240,4 @@ I updated the project scripts for the new package name.
 * `run_server.bat`
 * `run_singleplayer.bat`
 * `clearGAMEclassFiles.bat`
+```
