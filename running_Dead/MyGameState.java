@@ -41,7 +41,8 @@ public class MyGameState {
     boolean potionUsed = false;
     int equippedItem = GameConstants.ITEM_NONE;
 
-    int helpPage = 0;
+    int helpPage = GameConstants.HELP_OFF;
+    int lastInputDevice = GameConstants.INPUT_DEVICE_KEYBOARD_MOUSE;
     String eventMsg = "";
     double eventHold = 0.0;
     double stareWarningTimer = 0.0;

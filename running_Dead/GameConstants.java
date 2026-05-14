@@ -43,6 +43,13 @@ public final class GameConstants {
     public static final float FLASHLIGHT_BLIND_BATTERY_COST = 2.0f;
     public static final int TAGE_MAX_SKIN_BONES = 256;
 
+    public static final int INPUT_DEVICE_KEYBOARD_MOUSE = 0;
+    public static final int INPUT_DEVICE_XBOX = 1;
+
+    public static final int HELP_OFF = 0;
+    public static final int HELP_KEYBOARD = 1;
+    public static final int HELP_XBOX = 2;
+
     public static final float OVER_LEFT = 0.72f;
     public static final float OVER_BOTTOM = 0.72f;
     public static final float OVER_W = 0.26f;

@@ -233,19 +233,30 @@ public class MyGame extends VariableFrameRateGame {
 
 	@Override
 	public void mouseMoved(MouseEvent e) {
+		noteKeyboardMouseInput();
 		mouseLookSystem.mouseMoved(e);
 	}
 
 	@Override
 	public void mouseDragged(MouseEvent e) {
+		noteKeyboardMouseInput();
 		mouseLookSystem.mouseMoved(e);
 	}
 
 	@Override
 	public void mousePressed(MouseEvent e) {
+		noteKeyboardMouseInput();
 		if (e.getButton() == MouseEvent.BUTTON1) {
 			handlePrimaryAction();
 		}
+	}
+
+	public void noteKeyboardMouseInput() {
+		state.lastInputDevice = GameConstants.INPUT_DEVICE_KEYBOARD_MOUSE;
+	}
+
+	public void noteXboxInput() {
+		state.lastInputDevice = GameConstants.INPUT_DEVICE_XBOX;
 	}
 
 	public void setPadMove(float v) {
@@ -306,6 +317,10 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void removeBuildWall() {
 		buildSystem.removeBuildWall();
+	}
+
+	public boolean isBuildMode() {
+		return state.buildMode;
 	}
 
 	public void useZombieTagAbility() {
@@ -478,6 +493,10 @@ public class MyGame extends VariableFrameRateGame {
 
 	public void toggleFullMap() {
 		cameraSystem.toggleFullMap();
+	}
+
+	public boolean isFullMapMode() {
+		return state.fullMapMode;
 	}
 
 	public void toggleCameraMode() {

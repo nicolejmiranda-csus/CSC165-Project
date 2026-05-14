@@ -69,10 +69,10 @@ public class MyGameHUDSystem {
         if (!game.state.eventMsg.isEmpty()) top += "   |   " + game.state.eventMsg;
         hud.setHUD1(top, hudLight, 15, 15);
 
-        if (game.state.helpPage == 1) {
+        if (game.state.helpPage != GameConstants.HELP_OFF) {
             hud.setHUD2font(HUD_SMALL_FONT);
             hud.setHUD3font(HUD_SMALL_FONT);
-            String[] lines = instructionLines();
+            String[] lines = instructionLines(game.state.helpPage == GameConstants.HELP_XBOX);
             hud.setHUD2(lines[0], hudLight, 15, 40);
             hud.setHUD3(lines[1], hudLight, 15, 58);
             hud.setHUD4(lines[2], hudLight, 15, 76);
@@ -118,14 +118,31 @@ public class MyGameHUDSystem {
     }
 
     public void toggleHelp() {
-        game.state.helpPage = game.state.helpPage == 1 ? 0 : 1;
-        showEvent(game.state.helpPage == 1 ? "INSTRUCTIONS" : "INSTRUCTIONS OFF", 1.0);
+        if (game.state.helpPage == GameConstants.HELP_OFF) {
+            game.state.helpPage = game.state.lastInputDevice == GameConstants.INPUT_DEVICE_XBOX
+                    ? GameConstants.HELP_XBOX : GameConstants.HELP_KEYBOARD;
+        } else if (game.state.helpPage == GameConstants.HELP_KEYBOARD) {
+            game.state.helpPage = GameConstants.HELP_XBOX;
+        } else {
+            game.state.helpPage = GameConstants.HELP_OFF;
+        }
+
+        if (game.state.helpPage == GameConstants.HELP_KEYBOARD) showEvent("KEYBOARD INSTRUCTIONS", 1.0);
+        else if (game.state.helpPage == GameConstants.HELP_XBOX) showEvent("XBOX INSTRUCTIONS", 1.0);
+        else showEvent("INSTRUCTIONS OFF", 1.0);
     }
 
     private String[] buildGuideLines() {
         if (game.state.matchZombieWon) return new String[]{"ZOMBIES WIN", "ALL HUMANS WERE TAGGED BEFORE TIME RAN OUT"};
         if (game.state.matchHumanWon) return new String[]{"HUMANS WIN", "AT LEAST ONE HUMAN SURVIVED 300 SECONDS"};
+        boolean xbox = game.state.lastInputDevice == GameConstants.INPUT_DEVICE_XBOX;
         if (game.state.localPlayerZombie) {
+            if (xbox) {
+                return new String[]{
+                    "ZOMBIE: TAG EVERY HUMAN BEFORE TIME RUNS OUT   START HELP   R3 POV",
+                    "X/D-PAD UP INVIS   RB/D-PAD RIGHT BABY ZOMBIE   RT THROW/ATTACK   BABIES " + game.state.babyZombieCharges
+                };
+            }
             return new String[]{
                 "ZOMBIE: TAG EVERY HUMAN BEFORE TIME RUNS OUT   I INSTRUCTIONS   G POV",
                 "F INVISIBILITY   R EQUIP BABY ZOMBIE   LEFT CLICK THROW/ATTACK   BABIES " + game.state.babyZombieCharges
@@ -134,11 +151,25 @@ public class MyGameHUDSystem {
         if (game.state.buildMode) {
             String pieceName = game.state.buildPieceType == 0 ? "WALL" : "ROOF";
             String material = GameConstants.buildMaterialName(game.state.buildMaterialType);
+            if (xbox) {
+                return new String[]{
+                    "BUILD MODE: RT PLACE   RB ROTATE   LB WALL/ROOF   Y MATERIAL   D-PAD UP/DOWN HEIGHT",
+                    "PIECE " + pieceName + "   " + material + "   HEIGHT " + game.state.buildHeightLevel
+                            + "   WOOD " + game.state.buildMaterials + " METAL " + game.state.metalBuildMaterials
+                            + " GLASS " + game.state.glassBuildMaterials + "   B EXIT"
+                };
+            }
             return new String[]{
                 "BUILD MODE: LEFT CLICK PLACE   R ROTATE   Q WALL/ROOF   B MATERIAL   . UP   N DOWN",
                 "PIECE " + pieceName + "   " + material + "   HEIGHT " + game.state.buildHeightLevel
                         + "   WOOD " + game.state.buildMaterials + " METAL " + game.state.metalBuildMaterials
-                        + " GLASS " + game.state.glassBuildMaterials + "   E EXIT"
+                + " GLASS " + game.state.glassBuildMaterials + "   E EXIT"
+            };
+        }
+        if (xbox) {
+            return new String[]{
+                "HUMAN: SURVIVE UNTIL THE TIMER HITS ZERO   START HELP   R3 POV",
+                "X/D-PAD UP FLASHLIGHT   Y POTION   LB/D-PAD LEFT ROCK   RB/D-PAD RIGHT DASH   RT USE"
             };
         }
         return new String[]{
@@ -159,20 +190,36 @@ public class MyGameHUDSystem {
                 + "   MAT W" + game.state.buildMaterials + " M" + game.state.metalBuildMaterials + " G" + game.state.glassBuildMaterials;
     }
 
-    private String[] instructionLines() {
+    private String[] instructionLines(boolean xbox) {
         if (game.state.localPlayerZombie) {
+            if (xbox) {
+                return new String[]{
+                    "XBOX ZOMBIE: left stick move | right stick turn/tilt | L3 run | A jump | Select map | Start close",
+                    "XBOX CAMERA: R3 POV | full map uses D-pad pan and LT/RT zoom",
+                    "XBOX ZOMBIE TOOLS: X or D-pad up invisibility | RB or D-pad right equip baby zombie | RT attack/throw",
+                    "TRACK: nearest human coordinates update every 30 seconds above your own X/Y/Z position"
+                };
+            }
             return new String[]{
-                "ZOMBIE CONTROLS: I close instructions | W/S move | A/D strafe | mouse turns | Shift run | Space jump",
-                "CAMERA: Left/Right orbit | Up/Down tilt | PageUp zoom in | PageDown zoom out | G POV | Y shoulder | Tab mouse",
+                "KEYBOARD ZOMBIE: W/S move | A/D strafe | mouse turns | Shift run | Space jump | I cycles help",
+                "KEYBOARD CAMERA: Left/Right orbit | Up/Down tilt | PageUp zoom in | PageDown zoom out | G POV | M map",
                 "ZOMBIE TOOLS: F invisibility | R equip baby zombie | Left click attack/tag, break builds, or throw baby",
                 "TRACK: nearest human coordinates update every 30 seconds above your own X/Y/Z position"
             };
         }
+        if (xbox) {
+            return new String[]{
+                "XBOX HUMAN: left stick move | right stick turn/tilt | L3 run | A jump | Select map | Start close",
+                "XBOX CAMERA: R3 POV | full map uses D-pad pan and LT/RT zoom",
+                "XBOX ITEMS: X or D-pad up flashlight | Y potion | LB or D-pad left rock | RB or D-pad right dash | RT use",
+                "XBOX BUILD: B build/exit | LB wall/roof | RB rotate | Y material | D-pad up/down height | RT place"
+            };
+        }
         return new String[]{
-            "HUMAN CONTROLS: I close instructions | W/S move | A/D strafe | mouse turns | Shift run | Space jump",
-            "CAMERA: Left/Right orbit | Up/Down tilt | PageUp zoom in | PageDown zoom out | G POV | Y shoulder | Tab mouse",
+            "KEYBOARD HUMAN: W/S move | A/D strafe | mouse turns | Shift run | Space jump | I cycles help",
+            "KEYBOARD CAMERA: Left/Right orbit | Up/Down tilt | PageUp zoom in | PageDown zoom out | G POV | M map",
             "ITEMS: F flashlight | C potion | Q rock | R dash | Left click use equipped item or place while building",
-            "BUILD: E build mode/exit | Q wall/roof | B wood/metal/glass | R rotate | . raise | N lower | M map"
+            "BUILD: E build mode/exit | Q wall/roof | B wood/metal/glass | R rotate | . raise | N lower"
         };
     }
 
