@@ -80,17 +80,17 @@ Each round one player is assigned the **Zombie** role; all others are **Humans**
 
 ### Events
 
-| Event | Trigger | Effect |
-|---|---|---|
-| **Day/Night Cycle** | Every 150 seconds | Lighting, fog, and skybox shift between day and night. |
-| **NIGHT FALLS** | When night begins | HUD announcement; flashlights become critical for humans. |
-| **DAY BREAKS** | When day begins | HUD announcement; improved visibility returns. |
-| **Pickup Spawn** | Intermission start | 135 pickups scattered across 9 types spawn across the map. |
-| **Pickup Respawn** | 30 seconds after collected | Each pickup reappears at its original location. |
-| **Smiling Man** | Always present | AI threat that wanders and reacts to noise and eye contact. |
-| **Mushroom Mon** | Always present | Explosive NPC that spawns at map edges and detonates near players. |
-| **Round Start** | After intermission | Zombie role assigned by server; survival timer begins. |
-| **HUMANS WIN / ZOMBIES WIN** | Round end | HUD broadcast with result. |
+| Event                        | Trigger                                | Effect                                                             |
+| ---------------------------- | -------------------------------------- | ------------------------------------------------------------------ |
+| **Day/Night Cycle**          | Every 150 seconds                      | Lighting, fog, and skybox shift between day and night.             |
+| **NIGHT FALLS**              | When night begins                      | HUD announcement; flashlights become critical for humans.          |
+| **DAY BREAKS**               | When day begins                        | HUD announcement; improved visibility returns.                     |
+| **Pickup Spawn**             | Intermission start                     | 135 pickups scattered across 9 types spawn across the map.         |
+| **Pickup Respawn**           | 30 seconds after collected             | Each pickup reappears at its original location.                    |
+| **Smiling Man**              | Spawns after 30 seconds or 150 seconds | AI threat that wanders and reacts to noise and eye contact.        |
+| **Mushroom Mon**             | Always present                         | Explosive NPC that spawns at map edges and detonates near players. |
+| **Round Start**              | After intermission                     | Zombie role assigned by server; survival timer begins.             |
+| **HUMANS WIN / ZOMBIES WIN** | Round end                              | HUD broadcast with result.                                         |
 
 ### Scoring
 There is no point-based scoring. The result is purely win/loss per round based on the objective above.
