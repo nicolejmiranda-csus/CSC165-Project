@@ -111,7 +111,7 @@ float hash12(vec2 p)
 	return fract((p3.x + p3.y) * p3.z);
 }
 
-float noise2(vec2 p)
+float valueNoise2(vec2 p)
 {
 	vec2 cell = floor(p);
 	vec2 local = fract(p);
@@ -130,7 +130,7 @@ float fbm(vec2 p)
 	float freq = 1.0;
 	for (int layer = 0; layer < 4; layer++)
 	{
-		sum += amp * noise2(p * freq);
+		sum += amp * valueNoise2(p * freq);
 		freq *= 2.02;
 		amp *= 0.5;
 	}
@@ -326,8 +326,8 @@ vec4 baseObjectColor(vec3 normalForReflection, vec3 viewVector)
 		float blendStart = min(textureDetailNear, textureDetailFar);
 		float blendEnd = max(textureDetailNear + 0.01, textureDetailFar);
 		float blendWidth = max(blendEnd - blendStart, 0.0001);
-		float broadNoise = noise2(varyingVertPos.xz * 0.035);
-		float fineNoise = noise2(varyingVertPos.xz * 0.11 + vec2(17.0, 9.0));
+		float broadNoise = valueNoise2(varyingVertPos.xz * 0.035);
+		float fineNoise = valueNoise2(varyingVertPos.xz * 0.11 + vec2(17.0, 9.0));
 		float noisyDistance = cameraDistance + ((broadNoise * 0.7 + fineNoise * 0.3) - 0.5) * blendWidth * 0.28;
 		float blend = smoothstep(blendStart, blendEnd, noisyDistance);
 		float farScale = 1.0;
